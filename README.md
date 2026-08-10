@@ -1,4 +1,4 @@
-﻿# ConfigurationManager.zh-cn
+# ConfigurationManager.zh-cn 汉化拓展附属插件
 
 这是一个独立的 BepInEx 插件，为 ConfigurationManager 提供中文本地化扩展，无需修改原项目源码即可生效。
 
