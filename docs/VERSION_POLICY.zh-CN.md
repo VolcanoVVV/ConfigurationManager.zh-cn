@@ -21,7 +21,7 @@
 
 - 服务端元数据：`SimpleTranslatorCS.csproj` 的 `<Version>`，`ModMetadata` 从程序集读取。
 - 客户端插件版本：`ConfigurationManagerZhCnPlugin.cs` 的 `PluginVersion`。
-- 客户端程序集版本取自 `Properties/AssemblyInfo.cs` 的 `AssemblyVersion`、`AssemblyFileVersion`，当前为 `2.14.0.0`。
+- 客户端程序集版本取自 `src/Properties/AssemblyInfo.cs` 的 `AssemblyVersion`、`AssemblyFileVersion`，当前为 `2.14.0.0`。
 - 客户端使用 `tools/package_client_release.py` 打包。服务端使用服务端项目的 `tools/package_release.py`。脚本读取现有源码版本并生成文件名。
 
 后续接手本项目的维护者或 AI 助手应先遵循本约定。只有用户明确指定或授权更改版本号时，才修改上述数字。

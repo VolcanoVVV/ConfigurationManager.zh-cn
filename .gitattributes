@@ -3,6 +3,15 @@
 ###############################################################################
 * text=auto
 
+# Match the byte-for-byte source hashes in Shared/manifest.json.
+/Shared/AiModelCatalog.cs text eol=lf
+/Shared/BoundedHttpContent.cs text eol=lf
+/Shared/GlossaryDocument.cs text eol=crlf
+/Shared/TranslationGlossary.cs text eol=crlf
+/Shared/TranslationLogPath.cs text eol=lf
+/Shared/TranslationProviderPresets.cs text eol=lf
+/Shared/TranslationRequestPolicy.cs -text
+
 ###############################################################################
 # Set default behavior for command prompt diff.
 #

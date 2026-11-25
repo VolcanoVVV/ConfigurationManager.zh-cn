@@ -4,7 +4,7 @@
  </PropertyGroup>
  <ItemGroup>
   <Reference Include="ConfigurationManager.zh-cn"><HintPath>$(PluginAssemblyPath)</HintPath></Reference>
-  <Reference Include="ConfigurationManager"><HintPath>../../ConfigurationManager.dll</HintPath></Reference>
+  <Reference Include="ConfigurationManager"><HintPath>../../Dependencies/ConfigurationManager/ConfigurationManager.dll</HintPath></Reference>
   <Reference Include="BepInEx"><HintPath>../../../../EFToffline - 4.1debug/BepInEx/core/BepInEx.dll</HintPath></Reference>
   <Reference Include="UnityEngine"><HintPath>../../../../EFToffline - 4.1debug/EscapeFromTarkov_Data/Managed/UnityEngine.dll</HintPath></Reference>
   <Reference Include="UnityEngine.CoreModule"><HintPath>../../../../EFToffline - 4.1debug/EscapeFromTarkov_Data/Managed/UnityEngine.CoreModule.dll</HintPath></Reference>

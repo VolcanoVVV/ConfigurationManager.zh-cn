@@ -70,13 +70,13 @@
 | 离线配置 | `POST /api/cfg/preview` 解析并返回条目标识，`POST /api/cfg/export` 验证译文并返回 JSONC。`POST /api/cfg/translate` 会调用供应商。 |
 | 词表 | `GET /api/glossary` 与 `POST /api/glossary`。保存前比对文档版本并校验 UTF-8 TSV。 |
 | 工作台任务 | `POST /api/{domain}/translate` 可发出付费请求，`GET` 与 `POST /api/ai-stop` 读取或改变暂停状态。开始前确认用户授权、消费上限和目标范围。 |
-| 客户端与服务器交接 | `WebWorkbenchBridge.cs` 管理快照 `*.snapshot.json`、草稿 `*.draft.json` 和回执 `*.receipt.json`。`ServerWorkbenchClient.cs` 定义 SimpleTranslatorCS 的授权、提交、审核和任务接口。正式译文经服务端权限校验后发布。 |
+| 客户端与服务器交接 | `src/Workbench/WebWorkbenchBridge.cs` 管理快照 `*.snapshot.json`、草稿 `*.draft.json` 和回执 `*.receipt.json`。`src/Integration/ServerWorkbenchClient.cs` 定义 SimpleTranslatorCS 的授权、提交、审核和任务接口。正式译文经服务端权限校验后发布。 |
 
 ## 移植、升级和回归
 
-- **更换菜单或升级 BetterBepInEx**。先核对菜单类型、绘制入口、原文传递及索引刷新，再验证 `BetterBepInExCompatibility.cs` 中的探测和回退。使用开启/关闭新菜单的两条路径测试。注意鼠标抓取取样、4K 缩放和原版下拉遮挡。插件标题要验证是否由对应 GUID 词典解析，`UI.json` 供设置菜单本身使用。
+- **更换菜单或升级 BetterBepInEx**。先核对菜单类型、绘制入口、原文传递及索引刷新，再验证 `src/Integration/BetterBepInExCompatibility.cs` 中的探测和回退。使用开启/关闭新菜单的两条路径测试。注意鼠标抓取取样、4K 缩放和原版下拉遮挡。插件标题要验证是否由对应 GUID 词典解析，`UI.json` 供设置菜单本身使用。
 - **变更运行时**。核对目标 BepInEx、Harmony、Unity 与 ConfigurationManager 引用。Mono 项目的显式 `Compile` 和 IL2CPP 项目的条件编译需同步核对。IL2CPP 使用随包的 CLR Newtonsoft.Json。检查跨原生 UI 事件与文本集合的刷新，保留游戏主线程调度。
 - **迁移数据结构**。以旧根目录、三种旧分层和新后缀文件各建一份测试。核对同层冲突优先值、人工覆盖、原文更新及失败回退。保留原文基准和迁移原件。分发词典使用可移植的 GUID 文件和相对路径。
-- **修改请求生成或续跑**。沿用 `Shared/PaidApiBudget.cs` 的发送前预算预留和失败停止、`TranslationSafety.cs` 的字段保护校验。检查空响应、部分成功、429、超时、取消及变更任务设置后的检查点，保证预算随任务一致，取消后不发送下一批。模拟测试无真实 API 费用。
+- **修改请求生成或续跑**。沿用 `Shared/PaidApiBudget.cs` 的发送前预算预留和失败停止、`src/Translation/TranslationSafety.cs` 的字段保护校验。检查空响应、部分成功、429、超时、取消及变更任务设置后的检查点，保证预算随任务一致，取消后不发送下一批。模拟测试无真实 API 费用。
 - **升级服务器联动**。按实测能力加载，覆盖没有服务端插件、旧接口、Fika 锁定、授权后提交、回执与发布、断线重连及空闲无 `/workbench/live` 请求。`locale-notify` 是版本通知，内容由 `live` 取得；手动 **拉取译文** 仍可用。正式游戏语言表在主线程更新。
 - **本地验证**。源码仓库的 `tools/package_client_release.py` 构建两个包。`tools/一键测试汉化工作台.cmd` 或 `python -X utf8 tools/workbench_selftest.py --package-dir <目录>` 输出报告。保留模拟环境测试结果，并明确需要游戏内检查的运行时与界面。

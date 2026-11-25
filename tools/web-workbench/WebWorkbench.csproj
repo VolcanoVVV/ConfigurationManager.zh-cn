@@ -13,8 +13,8 @@
     <Reference Include="Newtonsoft.Json">
       <HintPath>../../Dependencies/Newtonsoft.Json/Newtonsoft.Json.dll</HintPath>
     </Reference>
-    <Compile Include="../../WebWorkbenchFiles.cs;../../LocalizationModels.cs;../../TranslationClients.cs;../../TranslationSafety.cs;../../AiExecutionOptions.cs" />
-    <Compile Include="../../GlossaryEditorSession.cs;../../TranslationTracking.cs" />
+    <Compile Include="../../src/Workbench/WebWorkbenchFiles.cs;../../src/Localization/LocalizationModels.cs;../../src/Translation/TranslationClients.cs;../../src/Translation/TranslationSafety.cs;../../src/Translation/AiExecutionOptions.cs" />
+    <Compile Include="../../src/Workbench/GlossaryEditorSession.cs;../../src/Localization/TranslationTracking.cs" />
     <EmbeddedResource Include="../glossary-editor/glossary-editor.js" LogicalName="GlossaryEditorScript" />
     <Compile Include="../../Shared/GlossaryDocument.cs;../../Shared/TranslationGlossary.cs;../../Shared/AiModelCatalog.cs;../../Shared/TranslationProviderPresets.cs;../../Shared/TranslationRequestPolicy.cs;../../Shared/BoundedHttpContent.cs;../../Shared/PaidApiBudget.cs" />
     <Content Update="wwwroot/**/*" CopyToOutputDirectory="PreserveNewest" />

@@ -21,7 +21,7 @@
 
 ## 实现维护
 
-`TranslationPanel.PluginSelection.cs` 管理选择配置、暂存勾选、窗口、导航保护；两个客户端工程均显式包含该文件。选择模式由 `UsesBatchPluginSelection` 决定，不能将网页机翻误归为批量接口。窗口打开、关闭和导航操作在下一次 IMGUI Layout 统一执行，避免事件间控件结构变化。模态窗口拦截背景鼠标并禁用 ConfigurationManager 内容。
+`src/Workbench/TranslationPanel.PluginSelection.cs` 管理选择配置、暂存勾选、窗口、导航保护。两个客户端工程均显式包含该文件。选择模式由 `UsesBatchPluginSelection` 决定，网页机翻使用当前插件。窗口打开、关闭和导航操作在下一次 IMGUI Layout 统一执行，避免事件间控件结构变化。模态窗口拦截背景鼠标并禁用 ConfigurationManager 内容。
 
 ## 验证
 

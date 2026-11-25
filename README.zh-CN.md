@@ -106,10 +106,10 @@ API 任务结果默认显示摘要。在 **展开任务详情 / 错误日志** �
 | 改动目标 | 从这里开始 |
 | --- | --- |
 | 制作或更新某个插件的词典 | 按 GUID 编辑 `translations/<GUID>_Manual.jsonc`。先核对原文配置，并在 F12 抽查名称、说明、枚举和双语；通常只需分发词典文件。 |
-| 调整设置菜单或移植到新运行时 | `ConfigurationManagerZhCnPlugin.cs` 是入口，`UiLocalization.cs`、`BetterBepInExCompatibility.cs` 和 `ConfigurationManagerScale.cs` 处理菜单。按实际接口形状验证 Harmony 补丁和 GUI 事件。 |
-| 调整词典合并、采集或更新 | `JsoncLocalization.cs`、`LocalizationModels.cs`、`TranslationTracking.cs`。同时核对新版路径、旧版 JSONC 和人工覆盖优先级。 |
-| 调整 API 或网页 | `TranslationClients.cs`、`TranslationSafety.cs` 和 `Shared/` 管理请求、标记校验和预算。网页程序在 `tools/web-workbench/`，游戏交接在 `WebWorkbenchBridge.cs`。 |
-| 改服务端联动 | 客户端从 `ServerTranslationFeature.cs`、`ServerWorkbenchClient.cs` 和 `ServerLocaleSynchronizer.cs` 入手，配套服务端按 SimpleTranslatorCS 版本构建与验证。 |
+| 调整设置菜单或移植到新运行时 | `ConfigurationManagerZhCnPlugin.cs` 是入口。菜单本地化见 `src/Localization/UiLocalization.cs`，缩放见 `src/Workbench/ConfigurationManagerScale.cs`，BetterBepInEx 兼容见 `src/Integration/BetterBepInExCompatibility.cs`。按实际接口形状验证 Harmony 补丁和 GUI 事件。 |
+| 调整词典合并、采集或更新 | 在 `src/Localization/` 查看 `JsoncLocalization.cs`、`LocalizationModels.cs`、`TranslationTracking.cs`。同时核对新版路径、旧版 JSONC 和人工覆盖优先级。 |
+| 调整 API 或网页 | `src/Translation/` 和 `Shared/` 管理请求、标记校验和预算。网页程序在 `tools/web-workbench/`，游戏交接见 `src/Workbench/WebWorkbenchBridge.cs`。 |
+| 改服务端联动 | 在 `src/Integration/` 查看 `ServerTranslationFeature.cs`、`ServerWorkbenchClient.cs` 和 `ServerLocaleSynchronizer.cs`。配套服务端按 SimpleTranslatorCS 版本构建与验证。 |
 
 从源码维护时保留项目许可证及依赖声明。Mono 使用 .NET Framework 4.7.1 引用程序集和 SPT 3.11 的 BepInEx 5.4.22 基线。IL2CPP 使用 `net6.0`、对应 BepInEx 6 和 IL2CPP ConfigurationManager 引用。两个项目的游戏路径分别可通过 `MonoGamePath`、`Il2CppGamePath` 指定，IL2CPP 的 `ConfigurationManagerPath` 可单独指定。网页项目使用 .NET 8。打包入口需要按脚本所列的本机游戏目录准备依赖。配置、游戏 DLL、API 日志和个人译文请留在测试安装。构建和打包命令见 [发布包约定](docs/RELEASE_LAYOUT.zh-CN.md)。
 

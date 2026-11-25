@@ -27,4 +27,17 @@
 - 从上次 GitHub 公开提交升级、安装包选择与验证范围。[2.14.0 更新说明](docs/RELEASE_NOTES_2.14.0.zh-CN.md)
 - 本地构建、依赖验证与打包。[发布包约定](docs/RELEASE_LAYOUT.zh-CN.md)
 
+## 项目结构
+
+| 目录 | 内容 |
+| --- | --- |
+| [src/](src/) | 客户端源码，按本地化、翻译任务、工作台和游戏集成划分 |
+| [Shared/](Shared/) | 客户端、网页和服务端共用的术语、请求与预算规则 |
+| [Dependencies/](Dependencies/) | 构建引用和随包依赖 |
+| [tools/](tools/) | 网页工作台、打包脚本和一键自测入口 |
+| [tests/](tests/) | 客户端、网页和安装包回归测试 |
+| [zh-cn/](zh-cn/) | 界面译文与术语表范例 |
+
+根目录中的 `ConfigurationManager.zh-cn.sln` 可打开两个客户端工程。联合打包脚本从根目录的 `ConfigurationManagerZhCnPlugin.cs` 读取客户端版本号。
+
 [项目许可证](LICENSE.txt)
