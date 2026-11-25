@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+ <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><AssemblyName>ConfigurationManager.zh-cn.Tests</AssemblyName>
+  <PluginAssemblyPath Condition="'$(PluginAssemblyPath)' == ''">../../bin/P1P2Fix/Mono/ConfigurationManager.zh-cn.dll</PluginAssemblyPath>
+ </PropertyGroup>
+ <ItemGroup>
+  <Reference Include="ConfigurationManager.zh-cn"><HintPath>$(PluginAssemblyPath)</HintPath></Reference>
+  <Reference Include="ConfigurationManager"><HintPath>../../ConfigurationManager.dll</HintPath></Reference>
+  <Reference Include="BepInEx"><HintPath>../../../../EFToffline - 4.1debug/BepInEx/core/BepInEx.dll</HintPath></Reference>
+  <Reference Include="UnityEngine"><HintPath>../../../../EFToffline - 4.1debug/EscapeFromTarkov_Data/Managed/UnityEngine.dll</HintPath></Reference>
+  <Reference Include="UnityEngine.CoreModule"><HintPath>../../../../EFToffline - 4.1debug/EscapeFromTarkov_Data/Managed/UnityEngine.CoreModule.dll</HintPath></Reference>
+  <Reference Include="Newtonsoft.Json"><HintPath>../../../../EFToffline - 4.1debug/EscapeFromTarkov_Data/Managed/Newtonsoft.Json.dll</HintPath></Reference>
+  <ProjectReference Include="../../tests/LocaleFixture/LocaleFixture.csproj" />
+ </ItemGroup>
+</Project>

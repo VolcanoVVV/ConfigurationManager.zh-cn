@@ -1,74 +1,30 @@
-# ConfigurationManager.zh-cn 汉化拓展附属插件
+# ConfigurationManager.zh-cn 汉化工作台
 
-这是一个独立的 BepInEx 插件，为 ConfigurationManager 提供中文本地化扩展，无需修改原项目源码即可生效。
+> [!WARNING]
+> **API 翻译由使用者自费。** 工作台使用你提供的供应商账户和密钥。请求一旦到达供应商，即使超时、取消、响应无效或译文未被采用，也可能计费。项目无法保证每次请求都有可用译文，也无法保证实际 Token 用量符合估算。费用以供应商账单为准。
+>
+> 首次正式启动 API 翻译前，请先在供应商后台检查计费与限额，用少量条目试译。F12 和网页都有费用确认与 **紧急停止 API**。停止可取消本地等待并阻止后续请求，已发送的请求仍可能计费。仅在可信服务器上使用服务端 API 翻译，提交任务时密钥会交给当前服务器。
 
-## 功能简介
+为 BepInEx ConfigurationManager 的 **F12 模组设置**增加简体中文、精翻、API 与机翻。兼容的 Mono 环境还可接入 BetterBepInEx。内置的网页汉化工作台可编辑草稿、管理 AI 术语表，以及从静态 CFG 制作词典。
 
-- 读取 `BepInEx/plugins/zh-cn/{GUID}.jsonc`，为插件名称、配置项名称、分类与描述做本地化
-- 支持用 `[分类]设置名` 解决同名设置项的重复覆盖
-- 枚举/Flags 显示本地化（支持枚举类型全名，避免同名冲突）
-- UI 文本本地化（通过 `BepInEx/plugins/zh-cn/ui.json`）
-- JSONC/JSON 热更新（修改文件后短时间内自动生效）
+## 下载与快速上手
 
-## 文件结构
+| 客户端 | 选择的 ZIP |
+| --- | --- |
+| SPT 3.11.x、4.0.x、4.1.x · BepInEx 5 | 中文版 **Mono** |
+| SPT 5.0 BE · BepInEx 6 | 中文版 **IL2CPP** |
 
-- `BepInEx/plugins/ConfigurationManager.zh-cn.dll`
-- `BepInEx/plugins/zh-cn/ui.json`
-- `BepInEx/plugins/zh-cn/{PluginGUID}.jsonc`
+1. 先安装对应运行时的 ConfigurationManager。关闭游戏，备份已有译文、术语表和配置。
+2. 从 [GitHub Releases](https://github.com/VolcanoVVV/ConfigurationManager.zh-cn/releases) 下载对应 ZIP，完整解压到游戏根目录。
+3. 进游戏按 F12，打开「汉化工作台」。原版入口在顶部，兼容的 BetterBepInEx 入口在左侧。可从「精翻」开始校对，从「打开网页」进入网页工作台。网页需要 .NET 8 ASP.NET Core Runtime。
 
-## JSONC 本地化示例
+只有 F12 插件设置需要汉化时，安装客户端即可。物品、任务等游戏文本由与服务器版本匹配的 SimpleTranslatorCS 提供。检测到 Fika 时，服务端工作台按服务器管理员密钥授权。
 
-以下示例用于 `guid = com.example.myplugin` 的插件，文件路径为：
+## 文档
 
-`BepInEx/plugins/zh-cn/com.example.myplugin.jsonc`
+- 安装升级、翻译与校对、术语、网页、服务器联动、排错与二次开发。[玩家与开发者手册](README.zh-CN.md)
+- 批量汉化、词典格式、本机接口、移植和升级验证。[AI 与 Agent 汉化指南](docs/AI_AGENT_GUIDE.zh-CN.md)
+- 从上次 GitHub 公开提交升级、安装包选择与验证范围。[2.14.0 更新说明](docs/RELEASE_NOTES_2.14.0.zh-CN.md)
+- 本地构建、依赖验证与打包。[发布包约定](docs/RELEASE_LAYOUT.zh-CN.md)
 
-```jsonc
-{
-  // 插件信息
-  "PluginInfo": {
-    "PluginName": "示例插件（中文）"
-  },
-
-  // 配置项本地化
-  "ConfigEntries": {
-    // 如果存在同名设置项，用 [分类]设置名 来精准匹配
-    "[通用]Enabled": {
-      "DispName": "启用",
-      "Description": "是否启用此功能",
-      "Category": "通用"
-    },
-    "Speed": {
-      "DispName": "速度",
-      "Description": "移动速度倍率",
-      "Category": "高级"
-    }
-  },
-
-  // 枚举本地化
-  "Enum": {
-    // 推荐使用枚举全名，避免同名冲突
-    "MyPlugin.Config.EffectMode": {
-      "Off": "关闭",
-      "Low": "低",
-      "High": "高"
-    }
-  }
-}
-```
-
-注意：
-- `ConfigEntries` 的 key 默认用设置项显示名（DispName）匹配
-- 若出现同名设置项，使用 `[分类]设置名` 可以避免冲突
-- 枚举优先匹配全名（含命名空间），找不到时再匹配短名
-
-
-## 使用步骤
-
-1) 编译 `ConfigurationManager.zh-cn` 项目，得到 `ConfigurationManager.zh-cn.dll`  
-2) 放入 `BepInEx/plugins/`  
-3) 在 `BepInEx/plugins/zh-cn/` 目录中创建 `ui.json` 与各插件的 `{GUID}.jsonc`
-
-## 常见问题
-
-- 修改 JSONC/JSON 后不生效：等待 1 秒左右（支持热更新），或重新打开配置窗口。
-- 枚举同名冲突：在 `Enum` 中使用枚举类型全名。
+[项目许可证](LICENSE.txt)

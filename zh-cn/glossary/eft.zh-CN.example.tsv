@@ -1,0 +1,16 @@
+# Escape from Tarkov / SPT 简体中文术语表；UTF-8，每行 原文<Tab>译文。
+# 删除行即可删除条目；以 # 开头可暂时禁用；仅匹配当前批次原文，不发送整表。
+# 下列上限包含提示头和 JSON 字符；同时不会超过任务输入预算的10%。
+#@enabled=true
+#@maxcharacters=800
+#@maxentries=24
+Ground Zero	中心区
+GroundZero	中心区
+raid	战局
+Scav	拾荒者
+hideout	藏身处
+Customs	海关
+Interchange	立交桥
+Shoreline	海岸线
+Lighthouse	灯塔
+Streets of Tarkov	塔科夫街区

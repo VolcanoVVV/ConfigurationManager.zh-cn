@@ -1,0 +1,128 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <RootNamespace>ConfigurationManagerZhCn</RootNamespace>
+    <AssemblyName>ConfigurationManager.zh-cn</AssemblyName>
+    <LangVersion>7.3</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <NuGetAudit>false</NuGetAudit>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <DefineConstants>$(DefineConstants);IL2CPP</DefineConstants>
+    <OutputPath>bin\IL2CPP\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>obj\IL2CPP\$(Configuration)\</IntermediateOutputPath>
+    <Il2CppGamePath Condition=" '$(Il2CppGamePath)' == '' ">..\..\EFToffline - 5.0debug</Il2CppGamePath>
+    <ConfigurationManagerPath Condition=" '$(ConfigurationManagerPath)' == '' ">$(Il2CppGamePath)\BepInEx\plugins\sptushonka\ConfigurationManager\ConfigurationManager.dll</ConfigurationManagerPath>
+    <!-- CLR dependency; never compile against the game's generated interop proxy. -->
+    <NewtonsoftJsonPath Condition=" '$(NewtonsoftJsonPath)' == '' ">Dependencies\Newtonsoft.Json\Newtonsoft.Json.dll</NewtonsoftJsonPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="0Harmony">
+      <HintPath>$(Il2CppGamePath)\BepInEx\core\0Harmony.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="BepInEx.Core">
+      <HintPath>$(Il2CppGamePath)\BepInEx\core\BepInEx.Core.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="BepInEx.Unity.Common">
+      <HintPath>$(Il2CppGamePath)\BepInEx\core\BepInEx.Unity.Common.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="BepInEx.Unity.IL2CPP">
+      <HintPath>$(Il2CppGamePath)\BepInEx\core\BepInEx.Unity.IL2CPP.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Il2CppInterop.Common">
+      <HintPath>$(Il2CppGamePath)\BepInEx\core\Il2CppInterop.Common.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Il2CppInterop.Runtime">
+      <HintPath>$(Il2CppGamePath)\BepInEx\core\Il2CppInterop.Runtime.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="SemanticVersioning">
+      <HintPath>$(Il2CppGamePath)\BepInEx\core\SemanticVersioning.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>$(Il2CppGamePath)\BepInEx\interop\UnityEngine.TextRenderingModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="ConfigurationManager">
+      <HintPath>$(ConfigurationManagerPath)</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(NewtonsoftJsonPath)</HintPath>
+      <Private>True</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="IllusionLibs.HoneyCome.Il2Cppmscorlib" Version="2023.99.12.15">
+      <IncludeAssets>compile</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="IllusionLibs.HoneyCome.UnityEngine" Version="2021.3.14.3">
+      <IncludeAssets>compile</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="zh-cn\glossary\eft.zh-CN.example.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="zh-cn\UI.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="ConfigurationManagerZhCnPlugin.cs" />
+    <Compile Include="ClientLocaleRefresher.cs" />
+    <Compile Include="RuntimeLocaleCollections.cs" />
+    <Compile Include="MainThreadDispatcher.cs" />
+    <Compile Include="FileLocationOpener.cs" />
+    <Compile Include="JsoncLocalization.cs" />
+    <Compile Include="LocalizationModels.cs" />
+    <Compile Include="MouseCapturePatches.cs" />
+    <Compile Include="ServerTranslationFeature.cs" />
+    <Compile Include="ServerWorkbenchClient.cs" />
+    <Compile Include="TranslationClients.cs" />
+    <Compile Include="AiExecutionOptions.cs" />
+    <Compile Include="ClientGlossary.cs" />
+    <Compile Include="GlossaryEditorSession.cs" />
+    <Compile Include="GlossaryEditorWindow.cs" />
+    <Compile Include="Shared\GlossaryDocument.cs" />
+    <Compile Include="LiveSyncLogFilter.cs" />
+    <Compile Include="Shared\TranslationGlossary.cs" />
+    <Compile Include="AiModelSelection.cs" />
+    <Compile Include="Shared\AiModelCatalog.cs" />
+    <Compile Include="Shared\TranslationProviderPresets.cs" />
+    <Compile Include="ServerLocaleSynchronizer.cs" />
+    <Compile Include="Shared\TranslationLogPath.cs" />
+    <Compile Include="TranslationExchange.cs" />
+    <Compile Include="Shared\TranslationRequestPolicy.cs" />
+    <Compile Include="Shared\BoundedHttpContent.cs" />
+    <Compile Include="Shared\PaidApiBudget.cs" />
+    <Compile Include="TranslationDiagnostics.cs" />
+    <Compile Include="TranslationCredentialStore.cs" />
+    <Compile Include="TranslationPanel.cs" />
+    <Compile Include="TranslationPanel.PluginSelection.cs" />
+    <Compile Include="WebWorkbenchFiles.cs" />
+    <Compile Include="WebWorkbenchBridge.cs" />
+    <Compile Include="TranslationPanelTheme.cs" />
+    <Compile Include="TranslationSafety.cs" />
+    <Compile Include="TranslationTracking.cs" />
+    <Compile Include="TranslationBatch.cs" />
+    <Compile Include="WorkbenchAppearance.cs" />
+    <Compile Include="ConfigurationManagerScale.cs" />
+    <Compile Include="UiLocalization.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+</Project>

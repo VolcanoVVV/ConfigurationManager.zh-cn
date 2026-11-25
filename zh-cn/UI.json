@@ -1,0 +1,489 @@
+{
+  "Plugin / mod settings": "Volcano制作 插件 / 模组设置 + 汉化模块",
+  "Normal settings": "通用选项",
+  "Keyboard shortcuts": "快捷键选项",
+  "Advanced settings": "高级选项",
+  "Debug info": "调试信息",
+  "Open Log": "打开日志",
+  "Close": "关闭",
+  "Search: ": "搜索：",
+  "Clear": "清除",
+  "Expand All": "全部展开",
+  "Collapse All": "全部折叠",
+  "Tip: Click plugin names to expand. Click setting and group names to see their descriptions.": "提示：点击插件名称展开；将鼠标移到设置或分类名称上可查看说明。",
+  "Tip: You can drag this window to move it. It will stay open while you interact with the game.": "提示：可以拖动此窗口；移动后与游戏交互时窗口仍会保持打开。",
+  "Plugins with no options available: ": "没有可用设置的插件：",
+  "URL": "官方网站",
+  "Reset": "重置",
+  "Failed to draw this field, check log for details.": "无法绘制此设置，请查看日志了解详情。",
+  "Press any key": "请按任意键",
+  "Cancel": "取消",
+  "Set...": "设置…",
+  "Set the key by pressing any key on your keyboard.": "按下键盘上的任意键进行设置。",
+  "Press any key combination": "请按任意组合键",
+  "Enabled": "启用",
+  "Disabled": "停用",
+  "$BetterBepInEx": {
+    "Mod Settings": "模组设置",
+    "Translation Workbench": "汉化工作台",
+    "Close Workbench": "收起汉化工作台",
+    "Workbench": "汉化工作台",
+    "Hide Workbench": "收起工作台",
+    "Capture Text": "鼠标抓取",
+    "Stop Capturing": "结束抓取",
+    "Stop Capture": "结束抓取",
+    "Manual": "精翻",
+    "API": "API",
+    "MT": "机翻",
+    "On": "开",
+    "Off": "关",
+    "Show manual translations": "显示已保存的人工译文。点击切换。",
+    "Show saved API translations": "显示已保存的 API 译文。点击切换。",
+    "Show machine translations": "显示机翻译文和当前的网页临时译文。点击切换。",
+    "Close (F12)": "关闭（F12）",
+    "Search every setting   Ctrl+F": "搜索全部设置   Ctrl+F",
+    "Filter mods": "筛选模组",
+    "Undo": "撤销",
+    "Redo": "重做",
+    "Clear": "清除",
+    "Show advanced": "显示高级",
+    "List the settings, and the mods, that their authors mark as advanced or hide from the menu. They are tagged where they appear. Search always finds them.": "列出作者标记为高级或隐藏的设置及模组，并显示对应标记。搜索始终包含这些设置。",
+    "Nothing to undo": "没有可撤销的操作",
+    "Nothing to redo": "没有可重做的操作",
+    "Undo ": "撤销 ",
+    "Redo ": "重做 ",
+    "Undid ": "已撤销 ",
+    "Redid ": "已重做 ",
+    "No setting matches.": "没有匹配的设置。",
+    " setting": " 项设置",
+    " settings": " 项设置",
+    " in ": "，涉及 ",
+    " mod": " 个模组",
+    " mods": " 个模组",
+    "Changed settings": "已修改的设置",
+    "Keybinds": "按键绑定",
+    "FAVORITES": "收藏",
+    "MODS  ": "模组  ",
+    "Changed only": "仅显示已修改",
+    "All": "全部",
+    "All  ": "全部  ",
+    "Changed  ": "已修改  ",
+    "Hide hidden mods  ": "收起隐藏模组  ",
+    "Show hidden mods  ": "显示隐藏模组  ",
+    "No mod has a changed setting.": "没有模组的设置被修改。",
+    "No mod matches.": "没有匹配的模组。",
+    "OTHER": "其他作者",
+    "mods  ": "模组  ",
+    "settings  ": "设置  ",
+    "changed  ": "已修改  ",
+    "Not bound": "未绑定",
+    "Enter": "回车",
+    "Left mouse": "鼠标左键",
+    "Right mouse": "鼠标右键",
+    "Middle mouse": "鼠标中键",
+    "Up": "上方向键",
+    "Down": "下方向键",
+    "Left": "左方向键",
+    "Right": "右方向键",
+    "Num ": "小键盘 ",
+    "Mouse ": "鼠标 ",
+    "HIDDEN": "隐藏",
+    "HIDDEN BY THE MOD'S AUTHOR": "作者隐藏的设置",
+    "The mod's author keeps this setting off the menu, often to work around a conflict or another problem. Change it only if the author tells you to.": "作者隐藏了此设置，通常是为了避免冲突或其他问题。请按该模组作者的说明操作。",
+    "The author keeps these off the menu, often to fix a conflict or another problem. They show here because Show advanced is on. Change one only if the author tells you to.": "作者通常为避免冲突或其他问题而隐藏这些设置。开启「显示高级」后才会列出，请按该模组作者的说明操作。",
+    "Favorite": "已收藏",
+    "Listed under Favorites at the top of the mods list. Click to remove it.": "已列在模组列表顶部的收藏中。点击取消收藏。",
+    "Add to favorites": "加入收藏",
+    "List this mod under Favorites at the top of the mods list": "将此模组加入列表顶部的收藏。",
+    "Website": "网站",
+    "Open this mod's website": "打开此模组的网站",
+    "Search this mod": "搜索当前模组",
+    " advanced": " 项高级设置",
+    "Settings this list leaves out. Click to turn on Show advanced.": "此列表隐藏的设置。点击开启「显示高级」。",
+    "Reset mod": "重置此模组",
+    "Reset ": "重置 ",
+    "reset ": "重置 ",
+    "Reset all": "全部重置",
+    "Reset all ": "重置全部 ",
+    "reset every mod": "重置所有模组",
+    "This mod has no settings to change. It is listed so you can see everything that is loaded.": "此模组没有可修改的设置。",
+    "No setting in this mod matches the search.": "此模组没有匹配的设置。",
+    "Nothing here matches the filter.": "没有符合筛选条件的设置。",
+    "This mod's author hides all of its settings or marks them advanced. Turn on Show advanced, at the top of the menu, to see them.": "此模组的设置都被作者隐藏或标记为高级。开启菜单顶部的「显示高级」即可查看。",
+    "Search results": "搜索结果",
+    "Nothing matches. Every word has to appear in a mod's name, a setting's name, its section or its description.": "没有匹配项。每个搜索词都必须出现在模组名称、设置名称、分类或说明中。",
+    "Every setting that is not at its default, across all mods.": "列出所有模组中偏离默认值的设置。",
+    "Every setting is at its default.": "所有设置均为默认值。",
+    "Every key bound by a mod. No two settings share a key.": "列出各模组的按键绑定。当前没有重复绑定。",
+    "Every key bound by a mod. Keys that more than one setting uses come first; every mod bound to one reacts to it.": "列出各模组的按键绑定。重复绑定排在前面，绑定同一按键的模组都会响应。",
+    "   used by ": "   被 ",
+    "No mod has a keybind setting.": "没有模组提供按键绑定设置。",
+    ". Ctrl+Z undoes it.": "。按 Ctrl+Z 可撤销。",
+    "Reset": "重置",
+    "Back to ": "恢复为 ",
+    "This setting failed to draw. The BepInEx log has the error.": "此设置无法显示。错误详情见 BepInEx 日志。",
+    "ADVANCED": "高级",
+    "READ ONLY": "只读",
+    "Same key as ": "与以下设置使用同一按键：",
+    " more)": " 项）",
+    "Open the Keybinds page": "打开按键绑定页",
+    "on": "开启",
+    "off": "关闭",
+    "nothing": "无",
+    "empty": "空",
+    "(none)": "（无）",
+    "Press a key or combination...   Esc cancels": "请按键或组合键…   Esc 取消",
+    "Unbind": "解除绑定",
+    "Click, then press the key or combination to bind": "点击后按下要绑定的按键或组合键",
+    "\" is not a valid value for ": "」不是有效值，设置为 ",
+    "Kept ": "已保留 ",
+    " is not one of the keys ": " 不在允许的按键中，设置为 ",
+    " accepts.": "。",
+    " is now ": " 已改为 ",
+    "Click to change the color": "点击修改颜色",
+    "Click to close": "点击收起",
+    "Screenshot": "截图",
+    "Save a picture of this mod's settings and copy it, ready to paste into Discord": "保存此模组的设置截图并复制，可直接粘贴到 Discord。",
+    "it could not be drawn (the BepInEx log has the error)": "绘制失败，详情见 BepInEx 日志",
+    "No screenshot: ": "截图失败：",
+    "nothing was saved": "未保存图片",
+    "Saved as ": "已保存 ",
+    " pictures in ": " 张图片至 ",
+    ", opened for you.": "，并已打开该文件夹。",
+    "Screenshot copied: paste it with Ctrl+V. Also saved in ": "截图已复制，可用 Ctrl+V 粘贴。文件已保存至 ",
+    "Screenshot saved in ": "截图已保存至 ",
+    "it could not be drawn offscreen": "无法离屏绘制",
+    "it could not be saved (the BepInEx log has the error)": "保存失败，详情见 BepInEx 日志",
+    " setting, ": " 项设置，",
+    " settings, ": " 项设置，",
+    "all at their defaults.": "全部使用默认值。",
+    " changed from default (marked with a bar).": " 项已修改（以色条标记）。",
+    " advanced not shown.": " 项高级设置未显示。",
+    "Default: ": "默认值：",
+    "(empty)": "（空）",
+    "Dark": "深色",
+    "Black (OLED)": "纯黑（OLED）",
+    "Grey": "灰色",
+    "High contrast": "高对比度",
+    "Tan": "棕褐色",
+    "Default": "默认",
+    "Name": "名称",
+    "Most changed": "修改最多",
+    "Most settings": "设置最多",
+    "Recently opened": "最近打开",
+    "Author": "作者"
+  },
+  "$Settings": {
+    "com.mybutthasarash.betterbepinex": {
+      "[General]Use the new menu": {
+        "Category": "常规",
+        "DispName": "使用新菜单",
+        "Description": "按 F12 时显示 BetterBepInEx，关闭后立即切回原版菜单。"
+      },
+      "[General]Hold the player still while open": {
+        "Category": "常规",
+        "DispName": "打开时暂停角色移动",
+        "Description": "在战局中打开菜单时阻止角色移动和转动视角，效果与打开物品栏相同。"
+      },
+      "[General]Click outside to keep playing": {
+        "Category": "常规",
+        "DispName": "点击菜单外继续游戏",
+        "Description": "点击菜单外使菜单淡出并交还鼠标和键盘。点击菜单可恢复操作，F12 仍可关闭菜单。"
+      },
+      "[General]Dim the game behind the menu": {
+        "Category": "常规",
+        "DispName": "调暗菜单背景",
+        "Description": "打开菜单时压暗游戏画面。"
+      },
+      "[General]Show descriptions under settings": {
+        "Category": "常规",
+        "DispName": "在设置名称下显示说明",
+        "Description": "关闭后，将鼠标悬停在设置名称上查看说明。"
+      },
+      "[General]Show hidden and advanced": {
+        "Category": "常规",
+        "DispName": "显示隐藏和高级设置",
+        "Description": "列出作者隐藏或标记为高级的设置与模组。也可通过菜单标题栏切换。"
+      },
+      "[General]Show config manager": {
+        "Category": "常规",
+        "DispName": "打开配置管理器",
+        "Description": "打开或关闭 F12 设置菜单的快捷键。"
+      },
+      "[Look]Opacity in the background": {
+        "Category": "外观",
+        "DispName": "后台不透明度",
+        "Description": "点击菜单外后淡出时的不透明度，1 为完全不透明。"
+      },
+      "[Look]Theme": {
+        "Category": "外观",
+        "DispName": "主题",
+        "Description": "菜单配色。OLED 屏幕可选纯黑，也可使用高对比度提高可读性。"
+      },
+      "[Look]Accent color": {
+        "Category": "外观",
+        "DispName": "强调色",
+        "Description": "开关、滑块、徽标及当前模组所用的颜色。"
+      },
+      "[Look]Category header color": {
+        "Category": "外观",
+        "DispName": "分类标题颜色",
+        "Description": "模组设置分类标题所用的颜色。"
+      },
+      "[Look]Text size": {
+        "Category": "外观",
+        "DispName": "文字大小",
+        "Description": "单独调整文字大小。此设置与菜单缩放叠加。"
+      },
+      "[Look]Compact rows": {
+        "Category": "外观",
+        "DispName": "紧凑布局",
+        "Description": "缩小设置项间距，在屏幕上显示更多设置。"
+      },
+      "[Look]Menu scale": {
+        "Category": "外观",
+        "DispName": "菜单缩放",
+        "Description": "调整菜单文字和控件的整体尺寸。1 为标准大小。"
+      },
+      "[Look]Scale with screen resolution": {
+        "Category": "外观",
+        "DispName": "随屏幕分辨率缩放",
+        "Description": "根据分辨率调整菜单尺寸。关闭后始终按 1080p 尺寸绘制。"
+      },
+      "[Look]Font": {
+        "Category": "外观",
+        "DispName": "字体",
+        "Description": "可使用游戏字体或 Windows 字体。缺少所选字体时使用默认字体。"
+      },
+      "[Look]Reset window position": {
+        "Category": "外观",
+        "DispName": "重置窗口位置",
+        "Description": "恢复窗口默认尺寸，并将它移回屏幕中央。"
+      },
+      "[Mods list]Sort mods by": {
+        "Category": "模组列表",
+        "DispName": "模组排序方式",
+        "Description": "可按名称、修改数量、设置数量、最近打开或作者排序。"
+      },
+      "[Window]Position": {
+        "Category": "窗口",
+        "DispName": "位置和尺寸",
+        "Description": "以屏幕比例保存窗口位置和尺寸。"
+      },
+      "[Window]Favorites": {
+        "Category": "窗口",
+        "DispName": "收藏",
+        "Description": "保存已收藏模组的 GUID。"
+      },
+      "[Window]Last page": {
+        "Category": "窗口",
+        "DispName": "上次打开的页面",
+        "Description": "保存关闭菜单时打开的页面。"
+      },
+      "[Window]Recent mods": {
+        "Category": "窗口",
+        "DispName": "最近打开的模组",
+        "Description": "按最近访问顺序保存模组 GUID。"
+      }
+    },
+    "com.bepis.bepinex.configurationmanager": {
+      "[Filtering]Show advanced": {
+        "Category": "筛选",
+        "DispName": "显示高级设置",
+        "Description": "显示由插件标记为高级的设置。"
+      },
+      "[Filtering]Show keybinds": {
+        "Category": "筛选",
+        "DispName": "显示快捷键",
+        "Description": "在列表中显示快捷键设置。"
+      },
+      "[Filtering]Show settings": {
+        "Category": "筛选",
+        "DispName": "显示普通设置",
+        "Description": "在列表中显示普通插件设置。"
+      },
+      "[General]Show config manager": {
+        "Category": "常规",
+        "DispName": "打开配置管理器",
+        "Description": "用于打开或关闭配置管理器窗口的快捷键。游戏专用插件可能会覆盖此按键；发生这种情况时，本设置不会生效。"
+      },
+      "[General]Hide single sections": {
+        "Category": "常规",
+        "DispName": "隐藏唯一分类标题",
+        "Description": "插件只有一个设置分类时，是否隐藏该分类的标题。"
+      },
+      "[General]Plugin collapsed default": {
+        "Category": "常规",
+        "DispName": "默认折叠插件",
+        "Description": "打开配置管理器窗口时，默认折叠各插件的设置。"
+      }
+    },
+    "BepInEx": {
+      "[Caching]EnableAssemblyCache": {
+        "Category": "程序集缓存",
+        "DispName": "启用程序集元数据缓存",
+        "Description": "缓存 BepInEx 扫描到的程序集类型信息，以加快后续启动时的插件和预加载补丁发现速度。"
+      },
+      "[Chainloader]HideManagerGameObject": {
+        "Category": "插件加载器",
+        "DispName": "隐藏管理器游戏对象",
+        "Description": "隐藏 BepInEx 管理器游戏对象，避免被普通 Unity 对象扫描意外找到。"
+      },
+      "[Detours]DetourProviderType": {
+        "Category": "方法转接",
+        "DispName": "转接实现",
+        "Description": "选择用于托管方法转接的底层实现。"
+      },
+      "[Harmony.Logger]LogChannels": {
+        "Category": "Harmony 日志",
+        "DispName": "日志频道",
+        "Description": "选择要接收的 Harmony 日志频道。IL 频道会输出大量方法指令，仅建议调试时使用。"
+      },
+      "[IL2CPP]UpdateInteropAssemblies": {
+        "Category": "IL2CPP",
+        "DispName": "自动更新互操作程序集",
+        "Description": "游戏或 BepInEx 更新后，自动重新生成 IL2CPP 互操作程序集。"
+      },
+      "[IL2CPP]UnityBaseLibrariesSource": {
+        "Category": "IL2CPP",
+        "DispName": "Unity 基础库来源",
+        "Description": "生成互操作程序集时使用的 Unity 托管基础库地址或本地压缩包名称。"
+      },
+      "[IL2CPP]UnhollowerDeobfuscationRegex": {
+        "Category": "IL2CPP",
+        "DispName": "反混淆正则表达式",
+        "Description": "为匹配的类型和成员生成跨游戏更新更稳定的名称；留空表示不启用。"
+      },
+      "[IL2CPP]ScanMethodRefs": {
+        "Category": "IL2CPP",
+        "DispName": "扫描方法引用",
+        "Description": "使用交叉引用扫描识别未使用的方法。"
+      },
+      "[IL2CPP]DumpDummyAssemblies": {
+        "Category": "IL2CPP",
+        "DispName": "导出虚拟程序集",
+        "Description": "将生成器创建的虚拟程序集保存到 BepInEx/dummy，供调试和分析使用。"
+      },
+      "[IL2CPP]IL2CPPInteropAssembliesPath": {
+        "Category": "IL2CPP",
+        "DispName": "互操作程序集目录",
+        "Description": "保存 IL2CPP 互操作程序集的目录，支持 BepInEx、ProcessName 和 GameDataPath 占位符。"
+      },
+      "[IL2CPP]PreloadIL2CPPInteropAssemblies": {
+        "Category": "IL2CPP",
+        "DispName": "预加载互操作程序集",
+        "Description": "加载插件前自动载入全部 IL2CPP 互操作程序集。部分插件依赖此功能。"
+      },
+      "[IL2CPP]GlobalMetadataPath": {
+        "Category": "IL2CPP",
+        "DispName": "全局元数据路径",
+        "Description": "游戏 global-metadata.dat 文件的位置。"
+      },
+      "[Logging]UnityLogListening": {
+        "Category": "日志",
+        "DispName": "接收 Unity 日志",
+        "Description": "将 Unity 日志消息转发到 BepInEx 日志系统。"
+      },
+      "[Logging]LogConsoleToUnityLog": {
+        "Category": "日志",
+        "DispName": "将控制台输出转发至 Unity 日志",
+        "Description": "把标准输出和错误输出写入 Unity 日志；某些游戏中可能造成重复日志。"
+      },
+      "[Logging.Console]Enabled": {
+        "Category": "控制台日志",
+        "DispName": "启用控制台",
+        "Description": "显示用于输出 BepInEx 日志的控制台窗口。"
+      },
+      "[Logging.Console]PreventClose": {
+        "Category": "控制台日志",
+        "DispName": "防止关闭控制台",
+        "Description": "阻止用户直接关闭控制台窗口。"
+      },
+      "[Logging.Console]ShiftJisEncoding": {
+        "Category": "控制台日志",
+        "DispName": "使用 Shift-JIS 编码",
+        "Description": "启用时控制台使用 Shift-JIS，否则使用 UTF-8。"
+      },
+      "[Logging.Console]StandardOutType": {
+        "Category": "控制台日志",
+        "DispName": "标准输出重定向方式",
+        "Description": "指定 BepInEx 如何选择和重定向标准输出句柄。"
+      },
+      "[Logging.Console]LogLevels": {
+        "Category": "控制台日志",
+        "DispName": "控制台日志级别",
+        "Description": "选择控制台中显示的日志级别。"
+      },
+      "[Logging.Disk]AppendLog": {
+        "Category": "磁盘日志",
+        "DispName": "追加日志",
+        "Description": "启动时在现有日志末尾继续写入，而不是覆盖旧日志。"
+      },
+      "[Logging.Disk]Enabled": {
+        "Category": "磁盘日志",
+        "DispName": "写入磁盘日志",
+        "Description": "将 BepInEx 日志写入磁盘文件。"
+      },
+      "[Logging.Disk]LogLevels": {
+        "Category": "磁盘日志",
+        "DispName": "磁盘日志级别",
+        "Description": "选择写入磁盘日志文件的日志级别。"
+      },
+      "[Logging.Disk]InstantFlushing": {
+        "Category": "磁盘日志",
+        "DispName": "即时刷新日志",
+        "Description": "每条日志写入后立即刷新磁盘，便于排查崩溃，但会明显影响性能。"
+      },
+      "[Logging.Disk]ConcurrentFileLimit": {
+        "Category": "磁盘日志",
+        "DispName": "并发日志文件上限",
+        "Description": "允许同时写入的日志文件数量，用于多开游戏实例。"
+      },
+      "[Logging.Disk]WriteUnityLog": {
+        "Category": "磁盘日志",
+        "DispName": "写入 Unity 日志",
+        "Description": "将 Unity 日志消息一并写入 BepInEx 磁盘日志。"
+      },
+      "[Preloader]HarmonyBackend": {
+        "Category": "预加载器",
+        "DispName": "Harmony 后端",
+        "Description": "选择 Harmony 补丁使用的 MonoMod 后端，通常保持自动选择。"
+      },
+      "[Preloader]ApplyRuntimePatches": {
+        "Category": "预加载器",
+        "DispName": "应用运行时补丁",
+        "Description": "应用 BepInEx 所需的运行时兼容补丁。通常应保持启用。"
+      },
+      "[Preloader]DumpAssemblies": {
+        "Category": "预加载器",
+        "DispName": "导出已补丁程序集",
+        "Description": "将预加载器处理后的程序集保存到 BepInEx/DumpedAssemblies，供调试使用。"
+      },
+      "[Preloader]LoadDumpedAssemblies": {
+        "Category": "预加载器",
+        "DispName": "加载已导出的程序集",
+        "Description": "从 BepInEx/DumpedAssemblies 加载程序集；启用后会覆盖导出程序集设置。"
+      },
+      "[Preloader]BreakBeforeLoadAssemblies": {
+        "Category": "预加载器",
+        "DispName": "加载程序集前中断",
+        "Description": "在加载程序集前暂停，供开发者附加调试器。"
+      },
+      "[Preloader.Entrypoint]Assembly": {
+        "Category": "预加载入口",
+        "DispName": "入口程序集",
+        "Description": "用于触发 BepInEx 链式加载器启动的 Unity 程序集。"
+      },
+      "[Preloader.Entrypoint]Type": {
+        "Category": "预加载入口",
+        "DispName": "入口类型",
+        "Description": "入口程序集中用于注入启动调用的类型。"
+      },
+      "[Preloader.Entrypoint]Method": {
+        "Category": "预加载入口",
+        "DispName": "入口方法",
+        "Description": "入口类型中用于注入启动调用的方法。"
+      }
+    }
+  }
+}

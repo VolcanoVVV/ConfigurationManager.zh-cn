@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; object-src 'none'; base-uri 'none'">
+<title>SimpleTranslatorCS 离线术语表编辑器</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,"Microsoft YaHei",sans-serif;background:#161c24;color:#e8edf4}*{box-sizing:border-box}body{max-width:1100px;margin:28px auto;padding:0 24px}h1{font-size:27px;margin-bottom:10px}h2{font-size:19px}p{line-height:1.7;color:#b8c5d6}section{background:#202a36;border:1px solid #37485b;border-radius:10px;padding:18px;margin:16px 0}.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}button{font:inherit;border:1px solid #57718e;border-radius:6px;background:#314860;color:#fff;padding:9px 14px;cursor:pointer}button:hover{background:#3d5c7b}button:disabled{opacity:.4;cursor:default}.primary{background:#246650}input,textarea{font:inherit;background:#141e29;color:#f2f5fa;border:1px solid #52657b;border-radius:5px;padding:8px}input[type=number]{width:100px}input[type=checkbox]{accent-color:#53bd9b}textarea{width:100%;min-height:80px;resize:vertical}table{width:100%;border-collapse:collapse}td,th{padding:8px 4px;text-align:left}td input:not([type=checkbox]){width:100%}th:first-child{width:50px}th:last-child{width:70px}.muted{font-size:14px;color:#b8c5d6}.success{color:#7ce0b9}.error{color:#ffb1a9}#status{min-height:32px;white-space:pre-wrap;line-height:1.6}#preview-result{white-space:pre-wrap;overflow-wrap:anywhere}code{color:#b9e3ff}#search{flex:1;min-width:160px}footer{padding-bottom:25px}summary{cursor:pointer}label{display:inline-flex;gap:8px;align-items:center}@media(max-width:600px){body{padding:0 10px}section{padding:10px}button{padding:8px}td{padding:5px 2px}h1{font-size:23px}}
+</style></head><body>
+<h1>离线 AI 术语表编辑器</h1>
+<p>用于 SimpleTranslatorCS 的游戏文本参照表，也兼容客户端 F12 术语表。全程本机编辑，不联网、不填写 API 密钥、不执行翻译任务。</p>
+<section><h2>1. 选择文件</h2><p>服务端：<code>user/mods/Volcano-SimpleTranslator/glossary/eft.zh-CN.tsv</code>。首次未运行时，可打开包内 <code>eft.zh-CN.example.tsv</code>，通过“导出草稿”生成正式文件。请在服务器所在电脑操作。</p>
+<div class="bar"><button id="open">打开 TSV 文件</button><button id="sample">载入预置到草稿</button><button id="export">导出草稿 TSV</button><input id="file" type="file" accept=".tsv" hidden></div>
+<p id="connected"></p><strong id="dirty"></strong><p class="muted">支持文件授权的浏览器可保存到所选文件；其他浏览器采用下载模式，下载完成后请自行备份并替换目标文件。浏览器不会自动定位服务器路径。</p></section>
+<section><h2>2. 调整设置与词条</h2><div class="bar"><label><input id="enabled" type="checkbox">启用参考</label><label>字符上限<input id="characters" type="number" min="0" max="2000" value="800"></label><label>条目上限<input id="entries" type="number" min="0" max="64" value="24"></label></div>
+<p class="muted">仅发送当前原文匹配的词条。字符预算包含参考说明和 JSON，实际还受任务输入预算的 10% 限制；字符数不等于 token 数。上限为 0 或关闭参考不会删除词条。</p>
+<div class="bar"><input id="search" placeholder="搜索原文或译文" aria-label="搜索"><button id="add">新增词条</button></div>
+<table><thead><tr><th>启用</th><th>原文（≤80字符）</th><th>译文（≤120字符）</th><th>操作</th></tr></thead><tbody id="rows"></tbody></table>
+<div class="bar"><button id="previous">上一页</button><span id="page"></span><button id="next">下一页</button></div>
+<p class="muted">删除、停用和保存都是显式操作；删除最后一条后，空表也会保留，不自动恢复预置。</p></section>
+<section><h2>3. 免费匹配预览</h2><textarea id="preview-source" aria-label="预览原文">Travel to GroundZero during a raid.</textarea><div class="bar"><label>任务输入字符预算<input id="input-budget" type="number" min="0" value="8000"></label><button id="preview">预览将附加的术语</button></div><pre id="preview-result"></pre></section>
+<section><details><summary>高级：粘贴 TSV 导入或修复草稿</summary><p class="muted">每行原文与译文之间使用一个 Tab。导入前校验，不会直接写入磁盘。原文件无效时也可在这里修复内容。</p><textarea id="raw" aria-label="TSV 文本"></textarea><button id="import-text">导入文本为草稿</button></details></section>
+<footer><div class="bar"><button id="validate">校验草稿</button><button id="save" class="primary">保存 / 下载正式 TSV</button></div><p id="status" role="status">请先打开术语表文件，或载入预置到草稿。</p><p class="muted">保存后下一次 AI 任务读取；正在运行的任务使用启动时快照，已有译文不会自动付费重翻。术语是参考，AI 输出仍需校对。仅装服务端可使用已有译文和编辑术语，当前 API 任务入口需要配套客户端工作台。</p></footer>
+<script src="glossary-editor.js"></script></body></html>

@@ -5,6 +5,8 @@ VisualStudioVersion = 17.14.36301.6 d17.14
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConfigurationManager.zh-cn", "ConfigurationManager.zh-cn.csproj", "{7B8E9E5F-7A26-4A20-B7C2-9F9B9AF06B61}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConfigurationManager.zh-cn.IL2CPP", "ConfigurationManager.zh-cn.IL2CPP.csproj", "{9A4A120B-DCB8-4C54-B87B-4D94B7306A3D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{7B8E9E5F-7A26-4A20-B7C2-9F9B9AF06B61}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7B8E9E5F-7A26-4A20-B7C2-9F9B9AF06B61}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7B8E9E5F-7A26-4A20-B7C2-9F9B9AF06B61}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9A4A120B-DCB8-4C54-B87B-4D94B7306A3D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9A4A120B-DCB8-4C54-B87B-4D94B7306A3D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9A4A120B-DCB8-4C54-B87B-4D94B7306A3D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9A4A120B-DCB8-4C54-B87B-4D94B7306A3D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

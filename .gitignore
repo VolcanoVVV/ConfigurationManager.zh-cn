@@ -364,3 +364,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# Runtime translation metadata and private diagnostics
+/zh-cn/cache/
+API翻译日志/

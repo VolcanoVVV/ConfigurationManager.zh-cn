@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>网页汉化工作台</AssemblyName>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <NuGetAudit>false</NuGetAudit>
+    <DefineConstants>$(DefineConstants);WEB_WORKBENCH</DefineConstants>
+    <!-- Shared models also have fields populated exclusively by the game plugin. -->
+    <NoWarn>$(NoWarn);CS0649</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>../../Dependencies/Newtonsoft.Json/Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Compile Include="../../WebWorkbenchFiles.cs;../../LocalizationModels.cs;../../TranslationClients.cs;../../TranslationSafety.cs;../../AiExecutionOptions.cs" />
+    <Compile Include="../../GlossaryEditorSession.cs;../../TranslationTracking.cs" />
+    <EmbeddedResource Include="../glossary-editor/glossary-editor.js" LogicalName="GlossaryEditorScript" />
+    <Compile Include="../../Shared/GlossaryDocument.cs;../../Shared/TranslationGlossary.cs;../../Shared/AiModelCatalog.cs;../../Shared/TranslationProviderPresets.cs;../../Shared/TranslationRequestPolicy.cs;../../Shared/BoundedHttpContent.cs;../../Shared/PaidApiBudget.cs" />
+    <Content Update="wwwroot/**/*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

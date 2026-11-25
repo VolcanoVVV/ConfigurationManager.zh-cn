@@ -1,0 +1,8 @@
+{
+  "packageVersion": "13.0.1",
+  "assemblyVersion": "13.0.0.0",
+  "publicKeyToken": "30ad4fe6b2a6aeed",
+  "targetFramework": ".NETStandard,Version=v2.0",
+  "sha256": "72cf291d4bab0edd08a9b07c6173e1e7ad1abb7ab727fd7044bf6305d7515661",
+  "origin": "Newtonsoft.Json 13.0.1 NuGet package, lib/netstandard2.0"
+}

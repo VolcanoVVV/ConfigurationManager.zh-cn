@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <DefineConstants>$(DefineConstants);IL2CPP</DefineConstants>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NuGetAudit>false</NuGetAudit>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <NoWarn>$(NoWarn);CS0649</NoWarn>
+    <NewtonsoftJsonPath Condition="'$(NewtonsoftJsonPath)' == ''">..\..\..\..\EFToffline - 5.0debug\BepInEx\plugins\Newtonsoft.Json.dll</NewtonsoftJsonPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="..\..\Shared\BoundedHttpContent.cs" Link="Shared/BoundedHttpContent.cs" />
+    <Compile Include="..\..\Shared\PaidApiBudget.cs" Link="Shared/PaidApiBudget.cs" />
+    <Compile Include="..\..\Shared\AiModelCatalog.cs" Link="Shared/AiModelCatalog.cs" />
+    <Compile Include="..\..\AiExecutionOptions.cs" Link="AiExecutionOptions.cs" />
+    <Compile Include="..\..\Shared\TranslationGlossary.cs" Link="Shared/TranslationGlossary.cs" />
+    <Compile Include="..\..\ClientGlossary.cs" Link="ClientGlossary.cs" />
+    <Reference Include="BepInEx.Core"><HintPath>..\..\..\..\EFToffline - 5.0debug\BepInEx\core\BepInEx.Core.dll</HintPath></Reference>
+    <Compile Include="..\..\Shared\TranslationRequestPolicy.cs" Link="Shared/TranslationRequestPolicy.cs" />
+    <Compile Include="..\..\LocalizationModels.cs" Link="LocalizationModels.cs" />
+    <Compile Include="..\..\TranslationTracking.cs" Link="TranslationTracking.cs" />
+    <Compile Include="..\..\TranslationSafety.cs" Link="TranslationSafety.cs" />
+    <Compile Include="..\..\TranslationClients.cs" Link="TranslationClients.cs" />
+    <Reference Include="Newtonsoft.Json"><HintPath>$(NewtonsoftJsonPath)</HintPath></Reference>
+  <Compile Include="../../Shared/TranslationProviderPresets.cs" />
+</ItemGroup>
+</Project>
