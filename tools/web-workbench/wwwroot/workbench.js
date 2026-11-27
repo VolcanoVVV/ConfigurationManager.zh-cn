@@ -5,15 +5,19 @@ const session = document.querySelector('meta[name=workbench-session]').content;
 const captions = { f12: 'F12 插件设置', server: '服务端游戏文本' };
 const fieldNames = { PluginName: '插件名', Category: '分类', DispName: '设置名', Description: '说明', Enum: '枚举', EnumValue: '枚举', Text: '自定义文本' };
 const layerNames = { manual: '人工', ai: 'AI', machine: '机翻' };
-const state = { view: 'f12', domain: 'f12', layer: 'manual', group: '', page: 1, revision: '',
-  rows: [], previewRows: [], groups: [], expanded: false, focus: null, selected: new Map(), edits: new Map(), editRows: new Map(),
-  previous: null, dirty: false, query: 0, busy: null, saving: false, exchange: [], syncKey: '' };
+const state = { view: 'f12', domain: 'f12', workMode: 'manual', layer: 'manual', page: 1, revision: '',
+  rows: [], previewRows: [], groups: [], fields: [], focus: null, selected: new Map(), edits: new Map(), editRows: new Map(),
+  excluded: new Set(), previous: null, dirty: false, query: 0, busy: null, saving: false, picking: false, exchange: [], syncKey: '' };
 let providers = { ai: [], machine: [] };
 const cfg = { input: null, plan: null, values: new Map(), failures: new Map(), busy: null, reading: false, dirty: false, page: 1 };
 let checkingSync = false;
 let hostStopped = false;
 let browserTab = crypto.randomUUID();
+let browserLease = null;
+let reconnectLease = null;
 let serverConnection = { id: null, locked: false };
+let directBusy = false;
+let directProbe = null;
 let aiPaused = false;
 let aiStopPending = false;
 let aiStopUnconfirmed = false;
@@ -55,7 +59,8 @@ function confirmPaidApi(description) {
 function showAiStop() {
   for (const id of ['apiStop', 'cfgApiStop']) {
     const button = $(id);
-    button.textContent = aiStopUnconfirmed ? '重试停止 API' : aiPaused ? '恢复 API' : '紧急停止 API';
+    const label = id === 'apiStop' ? '' : ' API';
+    button.textContent = aiStopUnconfirmed ? '重试停止' + label : aiPaused ? '恢复 API' : '紧急停止' + label;
     button.setAttribute('aria-pressed', String(aiPaused));
     button.disabled = aiStopPending;
   }
@@ -107,15 +112,20 @@ function updateWorkspaceVisibility() {
     ? '当前服务器已启用 Fika。请在游戏内 F12 验证服务端管理员密钥，验证后本页会自动解锁。'
     : '当前游戏未连接支持网页工作台的 SimpleTranslatorCS。';
   $('reload').hidden = auxiliaryVisible;
+  $('reload').textContent = state.domain === 'server' && serverConnection.direct ? '重新拉取服务端原文' : '刷新快照与回执';
 }
 
 async function refreshServerConnection() {
   const request = ++connectionRequest;
   const next = await api('server-connection');
   if (request !== connectionRequest) return false;
-  const changed = next.id !== serverConnection.id || next.locked !== serverConnection.locked;
+  const changed = next.id !== serverConnection.id || next.locked !== serverConnection.locked || next.direct !== serverConnection.direct;
+  if (state.domain === 'server' && (next.id !== serverConnection.id || next.direct !== serverConnection.direct)) {
+    state.selected.clear();
+    state.excluded.clear();
+  }
   serverConnection = next;
-  $('serverTab').hidden = $('serverReviewOption').hidden = !next.id;
+  $('serverReviewOption').hidden = !next.id;
   $('serverReviewOption').disabled = !next.id;
   if (state.domain === 'server' && changed) {
     state.query++;
@@ -133,6 +143,17 @@ function syncKey(revision, draftId, receiptId, receiptState, receiptDetail) {
 
 function say(text) { $('status').textContent = text; }
 function keyOf(row) { return JSON.stringify([row.group, row.id]); }
+function inApiMode() { return state.workMode === 'api'; }
+function showingDraft() { return state.view === 'review' && $('reviewScope').value === 'draft'; }
+function currentLayer() {
+  return !inApiMode() || (state.domain === 'server' && !serverConnection.direct) ? 'manual' : $('mode').value;
+}
+function draftMode(draft) { return draft?.workMode || (draft?.layer === 'manual' ? 'manual' : 'api'); }
+function draftLimit() { return state.domain === 'server' ? 30 : 100; }
+let sourceScope = null;
+let fieldScope = null;
+const inScope = (scope, id) => scope === null || scope.has(id);
+const rowInScope = row => inScope(sourceScope, row.group) && inScope(fieldScope, row.field ?? '');
 function fieldName(value) { return Object.hasOwn(fieldNames, value) ? fieldNames[value] : value || '文本'; }
 function option(value, name) { return new Option(name, value); }
 function setOptions(id, options, selected) {
@@ -153,7 +174,25 @@ async function api(path, body, signal, keepalive = false) {
 }
 
 function renewBrowserTab() {
-  if (browserTab && !hostStopped) api('browser-tab', { id: browserTab, open: true }).catch(() => {});
+  if (browserTab && !hostStopped && (!browserLease || browserLease.readyState !== WebSocket.OPEN))
+    api('browser-tab', { id: browserTab, open: true }).catch(() => {});
+}
+function openBrowserLease() {
+  if (!browserTab || hostStopped || browserLease) return;
+  const id = browserTab;
+  const url = new URL('/browser-lease?id=' + id, window.location.href);
+  url.protocol = 'ws:';
+  try {
+    const socket = new WebSocket(url, session);
+    browserLease = socket;
+    socket.addEventListener('close', () => {
+      if (browserLease !== socket) return;
+      browserLease = null;
+      if (browserTab === id && !hostStopped) reconnectLease = window.setTimeout(openBrowserLease, 500);
+    });
+  } catch {
+    // The heartbeat remains available if the browser cannot open a socket.
+  }
 }
 
 window.addEventListener('pagehide', () => {
@@ -161,27 +200,52 @@ window.addEventListener('pagehide', () => {
   const id = browserTab;
   browserTab = null;
   if (!hostStopped) api('browser-tab', { id, open: false }, undefined, true).catch(() => {});
+  clearTimeout(reconnectLease);
+  browserLease?.close();
+  browserLease = null;
 });
 window.addEventListener('pageshow', event => {
   if (!event.persisted) return;
   browserTab = crypto.randomUUID();
+  openBrowserLease();
   renewBrowserTab();
 });
 function discardConfirmed() {
   return !state.dirty || window.confirm('当前页面有未保存修改。继续会放弃这些修改。');
 }
 function updateButtons() {
+  const apiMode = inApiMode();
+  const working = !!state.busy || state.saving || state.picking;
+  const count = Math.min(state.selected.size, 30, Math.max(0, draftLimit() - state.edits.size));
+  $('taskBar').hidden = $('providerControls').hidden = $('apiExchange').hidden = !apiMode;
+  $('manualEditor').hidden = apiMode;
+  $('apiSelection').hidden = $('clear').hidden = !apiMode;
+  $('pageSelection').hidden = $('selectMatching').hidden = showingDraft();
+  $('manualMode').setAttribute('aria-pressed', !apiMode);
+  $('apiMode').setAttribute('aria-pressed', apiMode);
+  $('manualMode').disabled = $('apiMode').disabled = working;
+  $('mode').disabled = working;
   $('apiStop').hidden = $('mode').value !== 'ai' && state.busyMode !== 'ai';
-  $('counts').textContent = '已选 ' + state.selected.size + ' 条 · 待保存 ' + state.edits.size + ' 条';
-  $('save').disabled = state.edits.size === 0 || !state.dirty || !!state.busy || state.saving || !state.revision;
-  $('translate').disabled = state.selected.size === 0 || !!state.busy || state.saving || ($('mode').value === 'ai' && (aiPaused || aiStopPending));
-  $('promptBtn').disabled = state.selected.size === 0;
+  $('counts').textContent = (apiMode ? '队列 ' + state.selected.size + ' 条 · ' : '') +
+    '草稿 ' + state.edits.size + ' / ' + draftLimit();
+  $('save').disabled = state.edits.size === 0 || !state.dirty || working || !state.revision;
+  $('directPublish').hidden = state.domain !== 'server' || !serverConnection.direct;
+  $('directPublish').disabled = !state.previous || state.receiptId === state.previous || state.dirty || working ||
+    !state.revision || state.draftRevision !== state.revision || state.savedMode !== state.workMode || state.savedLayer !== state.layer;
+  $('translate').disabled = !apiMode || count === 0 || working ||
+    ($('mode').value === 'ai' && (aiPaused || aiStopPending));
+  $('translate').textContent = state.selected.size > count && count > 0 ? '翻译下一批' : '开始翻译';
+  $('translate').title = count ? ('本批最多 ' + count + ' 条') : '请选中待译条目，或先应用当前草稿。';
+  $('promptBtn').disabled = !apiMode || count === 0 || working;
+  $('selectMatching').disabled = !state.total || working || !state.revision;
+  $('apiDraftView').disabled = working;
+  $('apiDraftView').textContent = showingDraft() ? '返回待翻译' : '校对草稿';
+  $('clear').disabled = working || (!state.selected.size && !state.excluded.size);
   $('cancel').disabled = !state.busy;
-  $('layer').disabled = state.domain === 'server' || !!state.busy || state.saving;
-  const selectable = state.rows.filter(row => !row.removed);
+  const selectable = state.rows.filter(row => !row.removed && row.stamp);
+  $('pageSelect').disabled = working || !selectable.length;
   $('pageSelect').checked = selectable.length > 0 && selectable.every(row => state.selected.has(keyOf(row)));
   $('pageSelect').indeterminate = !$('pageSelect').checked && selectable.some(row => state.selected.has(keyOf(row)));
-  $('editorSelect').checked = state.focus !== null && state.selected.has(keyOf(state.focus));
 }
 function editValue(row) { return state.edits.get(keyOf(row))?.text ?? row[state.layer] ?? ''; }
 function patch(row, text) {
@@ -197,10 +261,15 @@ function patch(row, text) {
   updateButtons();
 }
 function selectRow(row, checked) {
-  if (row.removed) return;
+  if (row.removed || !row.stamp) return;
   const key = keyOf(row);
-  if (checked) state.selected.set(key, row);
-  else state.selected.delete(key);
+  if (checked) {
+    state.selected.set(key, { id: row.id, group: row.group, field: row.field ?? '', stamp: row.stamp });
+    state.excluded.delete(key);
+  } else {
+    state.selected.delete(key);
+    state.excluded.add(key);
+  }
 }
 function node(tag, className, text) {
   const result = document.createElement(tag);
@@ -254,18 +323,15 @@ function updateEffective() {
   const display = effective(row);
   $('editorEffective').textContent = state.domain === 'f12'
     ? '预览使用' + (display.layer ? layerNames[display.layer] + '层' : '原文') + ' · ' + display.value
-    : '修改后保存草稿，再回游戏确认玩家投稿。';
+    : serverConnection.direct ? '修改后保存草稿，再确认发布。' : '修改后保存草稿，再回游戏确认玩家投稿。';
 }
 function renderEditor() {
-  const reviewing = state.view === 'review';
-  const row = reviewing ? null : state.focus;
-  $('editorTitle').textContent = reviewing ? '校对与保存' : '译文编辑';
-  $('editorEmpty').textContent = reviewing ? '直接编辑表格里的译文列。' : '选择左侧文字开始编辑。';
+  const row = inApiMode() ? null : state.focus;
   $('editorEmpty').hidden = row !== null;
   $('editor').hidden = row === null;
   if (row !== null) {
     const related = state.view === 'f12'
-      ? state.previewRows.filter(candidate => settingUnit(candidate) === settingUnit(row))
+      ? state.previewRows.filter(candidate => candidate.group === row.group && settingUnit(candidate) === settingUnit(row))
       : [row];
     $('editorFields').replaceChildren(...related.map(candidate =>
       fieldButton(candidate, fieldName(candidate.field), 'editor-field')));
@@ -275,16 +341,16 @@ function renderEditor() {
   }
   updateButtons();
 }
-function renderPreview(root) {
+function renderPreview(root, group, previewRows) {
   const frame = node('div', 'f12-frame');
   const heading = node('div', 'f12-title');
-  const plugin = state.previewRows.find(row => row.id === 'plugin-name');
+  const plugin = previewRows.find(row => row.id === 'plugin-name');
   if (plugin) heading.append(previewButton(plugin, 'f12-plugin'));
-  else if (state.previewRows.length) heading.append(node('strong', '', state.previewRows[0].name));
+  else if (previewRows.length) heading.append(node('strong', '', previewRows[0].name));
   frame.append(heading);
 
   const units = new Map();
-  for (const row of state.previewRows) {
+  for (const row of previewRows) {
     if (row.id === 'plugin-name') continue;
     const unit = settingUnit(row);
     if (!units.has(unit)) units.set(unit, []);
@@ -294,7 +360,7 @@ function renderPreview(root) {
   for (const fields of units.values()) {
     const category = fields.find(row => row.field === 'Category');
     const label = category ? previewText(category) : fields[0].id.startsWith('setting|') ? '常规设置' : '其他可翻译文本';
-    const key = JSON.stringify([state.group, category?.source || label, label]);
+    const key = JSON.stringify([group, category?.source || label, label]);
     if (!categories.has(key)) {
       const section = node('section', 'f12-category');
       const bar = node('div', 'f12-category-bar');
@@ -306,7 +372,6 @@ function renderPreview(root) {
         if (collapsedCategories.has(key)) collapsedCategories.delete(key);
         else collapsedCategories.add(key);
         renderRows();
-        [...$('rows').querySelectorAll('.f12-collapse')][[...categories.keys()].indexOf(key)]?.focus();
       };
       bar.append(toggle, category ? previewButton(category, 'f12-category-title') : node('h3', 'f12-category-title', label));
       section.append(bar);
@@ -328,16 +393,21 @@ function renderPreview(root) {
   }
   root.append(frame);
 }
+const collapsedPlugins = new Set();
 function renderPluginList(root) {
-  const query = $('search').value.trim().toLowerCase();
   const language = $('previewLanguage').value;
+  const visible = new Map();
+  for (const row of state.previewRows) {
+    if (!visible.has(row.group)) visible.set(row.group, []);
+    visible.get(row.group).push(row);
+  }
   for (const group of state.groups) {
-    const current = group.id === state.group;
+    const rows = visible.get(group.id);
+    if (!rows) continue;
     const original = group.name || group.id;
-    const titleRow = current && state.previewRows.find(row => row.id === 'plugin-name');
+    const titleRow = rows.find(row => row.id === 'plugin-name');
     const localized = titleRow ? effective(titleRow).value : group.localizedName || original;
-    if (query && !current && ![original, localized, group.id].some(value => value.toLowerCase().includes(query))) continue;
-    const open = current && state.expanded;
+    const open = !collapsedPlugins.has(group.id);
     const title = (language === 'en' ? original : language === 'zh' || original === localized ? localized : original + ' · ' + localized)
         + (group.version ? '  ' + group.version : '');
     const section = node('section', 'plugin-block');
@@ -346,60 +416,65 @@ function renderPluginList(root) {
     button.setAttribute('aria-expanded', String(open));
     button.append(node('span', 'plugin-marker', open ? '收起' : '…'));
     button.onclick = () => {
-      state.expanded = !open;
-      if (current) renderRows();
-      else {
-        state.group = group.id;
-        state.focus = null;
-        state.page = 1;
-        run(load);
-      }
-      $('collapsePlugins').textContent = state.expanded ? '全部折叠' : '展开所选';
+      if (open) collapsedPlugins.add(group.id);
+      else collapsedPlugins.delete(group.id);
+      renderRows();
     };
     section.append(button);
     if (open) {
-      if (state.rows.length) renderPreview(section);
-      else section.append(node('p', 'empty', '当前插件没有匹配的文字。'));
+      renderPreview(section, group.id, rows);
     }
     root.append(section);
   }
+  if (!visible.size) root.append(node('p', 'empty', '当前来源没有匹配的文字。'));
 }
 function renderReview(root) {
   const wrap = node('div', 'table-wrap');
   const table = node('table', 'review-table');
+  const selectable = inApiMode() && !showingDraft();
+  const editing = inApiMode() && showingDraft();
   const header = node('tr');
-  for (const text of ['选中', '原文与变化', '译文（可编辑）']) header.append(node('th', '', text));
+  if (selectable) header.append(node('th', '', '选中'));
+  header.append(node('th', '', '原文与变化'), node('th', '', editing ? '译文（可编辑）' : '当前译文'));
   const head = node('thead'); head.append(header); table.append(head);
   const body = node('tbody');
   for (const row of state.rows) {
     const tr = node('tr');
-    const pick = node('td');
-    const checkbox = node('input');
-    checkbox.type = 'checkbox';
-    checkbox.disabled = !!row.removed;
-    checkbox.checked = state.selected.has(keyOf(row));
-    checkbox.setAttribute('aria-label', '选中 ' + row.source);
-    checkbox.onchange = () => { selectRow(row, checkbox.checked); updateButtons(); };
-    pick.append(checkbox);
+    if (selectable) {
+      const pick = node('td');
+      const checkbox = node('input');
+      checkbox.type = 'checkbox';
+      checkbox.disabled = !!row.removed || !row.stamp;
+      checkbox.checked = state.selected.has(keyOf(row));
+      checkbox.setAttribute('aria-label', '选中 ' + row.source);
+      checkbox.onchange = () => {
+        if (!state.busy && !state.saving && !state.picking) selectRow(row, checkbox.checked);
+        checkbox.checked = state.selected.has(keyOf(row));
+        updateButtons();
+      };
+      pick.append(checkbox);
+      tr.append(pick);
+    }
     const source = node('td');
-    source.append(node('span', 'row-meta', row.name + ' · ' + fieldName(row.field)),
-      node('div', 'review-source', row.removed ? '当前快照中已移除' : row.source));
+    const original = row.removed ? '当前快照中已移除' : row.source;
+    source.append(node('span', 'row-meta', row.name + ' · ' + fieldName(row.field)), !inApiMode() && !row.removed
+      ? fieldButton(row, original, 'review-source') : node('div', 'review-source', original));
     if (row.change) source.prepend(node('span', 'change-tag', row.change));
     if (row.previousSource && row.previousSource !== row.source)
       source.append(node('p', 'existing', '上次原文 · ' + row.previousSource));
     const target = node('td');
-    const text = node('textarea');
-    text.setAttribute('aria-label', '校对 · ' + row.source);
-    text.rows = 2; text.maxLength = 4000; text.spellcheck = false;
-    text.disabled = !!row.removed;
-    text.value = editValue(row);
-    text.oninput = () => { patch(row, text.value); };
-    target.append(text);
-    if (!text.value && effective(row).layer) {
-      const prior = effective(row);
-      target.append(node('p', 'existing', '当前显示 · ' + prior.value));
+    if (editing) {
+      const text = node('textarea');
+      text.setAttribute('aria-label', '校对 · ' + row.source);
+      text.rows = 2; text.maxLength = 4000; text.spellcheck = false;
+      text.value = editValue(row);
+      text.oninput = () => { patch(row, text.value); };
+      target.append(text);
+    } else {
+      const current = effective(row);
+      target.append(node('span', 'review-target', current.layer ? current.value : '—'));
     }
-    tr.append(pick, source, target);
+    tr.append(source, target);
     body.append(tr);
   }
   table.append(body); wrap.append(table); root.append(wrap);
@@ -407,12 +482,11 @@ function renderReview(root) {
 function renderRows({ editor = true } = {}) {
   const root = $('rows');
   root.replaceChildren();
-  if (state.view === 'f12' && state.groups.length) renderPluginList(root);
+  if (!inApiMode() && state.view === 'f12' && state.groups.length) renderPluginList(root);
   else if (!state.rows.length) root.append(node('div', 'empty', state.revision
     ? state.view === 'review' ? '当前范围没有可检查的变化或草稿。' : '没有匹配的原文。'
     : '请先在游戏中导出此工作区的原文快照。'));
-  else if (state.view === 'f12') renderPreview(root);
-  else if (state.view === 'review') renderReview(root);
+  else if (state.view === 'review' || inApiMode()) renderReview(root);
   else {
     for (const row of state.rows) {
       const item = node('div', 'server-row');
@@ -423,19 +497,30 @@ function renderRows({ editor = true } = {}) {
   if (editor) renderEditor();
   else updateButtons();
 }
+function catalogParams() {
+  const reviewing = state.view === 'review';
+  const review = reviewing && !showingDraft()
+    ? $('reviewScope').value === 'updates' ? 'updates'
+      : state.domain === 'server' ? 'published' : state.layer === 'manual' ? 'published' : state.layer
+    : '';
+  const params = new URLSearchParams({ group: '', scope: sourceScope === null ? 'all' : 'selected', q: $('search').value, field: '',
+    missing: String(!reviewing && $('missing').checked), page: String(state.page),
+    view: !inApiMode() && state.view === 'f12' ? 'preview' : '', review });
+  if (sourceScope !== null) for (const source of sourceScope) params.append('source', source);
+  if (fieldScope !== null) {
+    params.set('fieldScope', 'selected');
+    for (const field of fieldScope) params.append('fieldType', field);
+  }
+  return params;
+}
 async function load({ restore = false, background = false } = {}) {
   if (serverBlocked()) return;
   const query = ++state.query;
   const domain = state.domain;
   const reviewing = state.view === 'review';
-  const draftOnly = reviewing && $('reviewScope').value === 'draft';
-  const review = reviewing && !draftOnly
-    ? $('reviewScope').value === 'updates' ? 'updates'
-      : domain === 'server' ? 'published' : state.layer === 'manual' ? 'api' : state.layer
-    : '';
-  const params = new URLSearchParams({ group: state.group, q: $('search').value, field: $('field').value,
-    missing: String(!reviewing && $('missing').checked), page: String(state.page),
-    view: state.view === 'f12' ? 'preview' : '', review });
+  const draftOnly = showingDraft();
+  const params = catalogParams();
+  const review = params.get('review');
   const [catalog, draftState] = await Promise.all([api(domain + '/catalog?' + params), api(domain + '/draft')]);
   if (query !== state.query || (background && !canRefreshInBackground())) return;
   if (state.revision && catalog.revision !== state.revision && state.dirty) {
@@ -443,7 +528,6 @@ async function load({ restore = false, background = false } = {}) {
     return;
   }
   if (state.revision !== (catalog.revision || '')) {
-    state.selected.clear();
     state.edits.clear();
     state.editRows.clear();
     state.focus = null;
@@ -453,15 +537,19 @@ async function load({ restore = false, background = false } = {}) {
   state.revision = catalog.revision || '';
   state.rows = catalog.rows || [];
   state.groups = catalog.groups || [];
+  state.fields = catalog.fields || [];
   state.previewRows = catalog.previewRows || [];
-  if (state.focus !== null) {
+  if (state.focus !== null && !draftOnly) {
     const candidates = state.view === 'f12' ? state.previewRows : state.rows;
     state.focus = candidates.find(row => isFocused(row)) ?? null;
   }
-  state.group = catalog.group || '';
   state.page = catalog.page || 1;
   const draft = draftState.draft;
   const receipt = draftState.receipt;
+  state.receiptId = receipt?.id;
+  state.draftRevision = draft?.revision;
+  state.savedMode = draft ? draftMode(draft) : null;
+  state.savedLayer = draft?.layer;
   state.syncKey = syncKey(state.revision, draft?.id, receipt?.id, receipt?.state, receipt?.detail);
   if ((draft?.id ?? null) !== state.previous && state.dirty) {
     say('磁盘草稿已由另一个页面修改，请核对后重新载入。');
@@ -471,9 +559,8 @@ async function load({ restore = false, background = false } = {}) {
   if (restore && !state.dirty) {
     state.edits.clear();
     state.editRows.clear();
-    if (draft?.revision === state.revision && receipt?.id !== draft.id) {
-      state.layer = draft.layer;
-      $('layer').value = draft.layer;
+    if (draft?.revision === state.revision && receipt?.id !== draft.id && draftMode(draft) === state.workMode &&
+        draft.layer === state.layer) {
       for (const row of draft.edits) {
         const group = (catalog.groups || []).find(item => item.id === row.group);
         state.edits.set(keyOf(row), { id: row.id, group: row.group, text: row.text });
@@ -482,19 +569,12 @@ async function load({ restore = false, background = false } = {}) {
           field: row.field || (row.id === 'plugin-name' ? 'PluginName' : row.id.split('|').at(-1)), [draft.layer]: row.base
         });
       }
-      if (reviewing && $('reviewScope').value === 'translated' && domain === 'f12' && review !== draft.layer && draft.layer !== 'manual') {
-        await load();
-        return;
-      }
     }
   }
-  const groups = (catalog.groups || []).map(item => option(item.id, item.name + ' · ' + item.count));
-  if (domain === 'server') groups.unshift(option('', '全部来源'));
-  setOptions('group', groups, state.group);
-  setOptions('field', [option('', '全部字段'), ...(catalog.fields || []).map(item => option(item, fieldName(item)))], $('field').value);
+  renderScopes();
   $('title').textContent = reviewing ? '翻译更新检查' : captions[domain];
   $('sourceInfo').textContent = catalog.available
-    ? '本机快照 · ' + new Date(catalog.capturedAt).toLocaleString() + (domain === 'server' ? ' · 玩家投稿' : ' · 可离线编辑')
+    ? '本机快照 · ' + new Date(catalog.capturedAt).toLocaleString() + (domain === 'server' ? serverConnection.direct ? ' · 管理员直连' : ' · 玩家投稿' : ' · 可离线编辑')
     : domain === 'server' ? '请回到 F12，点击“刷新网页服务端快照”。' : '尚未导出快照';
   if (catalog.available && review === 'updates') $('sourceInfo').textContent = catalog.updateBasis === 'f12-tracking'
     ? '与插件已记录的原文基准比对。'
@@ -502,32 +582,39 @@ async function load({ restore = false, background = false } = {}) {
       : domain === 'server' ? '同一连接再次导出服务端目录后即可比对。' : '请在游戏中重新导出 F12 快照，以获得原文变化。';
   $('receipt').textContent = draft && receipt?.id === draft.id ? receipt.detail
     : draft && draft.revision !== state.revision ? '磁盘草稿来自旧快照，请重新核对原文。'
-    : draft ? '已保存草稿 · 等待游戏确认' : '';
+    : draft && (draftMode(draft) !== state.workMode || draft.layer !== state.layer) ? '另一翻译模式或译文层有已保存的草稿。'
+    : draft ? serverConnection.direct && domain === 'server' ? '已保存草稿 · 等待管理员发布' : '已保存草稿 · 等待游戏确认' : '';
   let count = catalog.total || 0;
   let pageTotal = catalog.pageTotal ?? count;
   const size = catalog.size || 24;
   if (draftOnly) {
     const queryText = $('search').value.trim().toLowerCase();
-    const field = $('field').value;
-    const draftRows = [...state.editRows.values()].filter(row => (!state.group || state.group === row.group) &&
-      (!field || field === row.field) && [row.source, row.context, editValue(row)].some(value => (value || '').toLowerCase().includes(queryText)));
+    const draftRows = [...state.editRows.values()].filter(row => inApiMode() || (rowInScope(row) &&
+      [row.source, row.context, editValue(row)].some(value => (value || '').toLowerCase().includes(queryText))));
     count = pageTotal = draftRows.length;
     state.page = Math.max(1, Math.min(Number(params.get('page')), Math.ceil(count / size)));
     state.rows = draftRows.slice((state.page - 1) * size, state.page * size);
+    if (state.focus) state.focus = state.rows.find(isFocused) ?? null;
   }
+  state.total = count;
+  updateView();
   $('total').textContent = count + ' 条';
   const pages = Math.max(1, Math.ceil(pageTotal / size));
   $('page').textContent = state.page + ' / ' + pages;
   $('prev').disabled = state.page === 1;
   $('next').disabled = state.page >= pages;
-  $('layerHelp').textContent = domain === 'server' ? '网页 AI 使用本机术语表；F12 发起的服务端 AI 使用服务器术语表。投稿由管理员审核发布。' : '人工译文优先于 AI 和机翻。清空后可恢复下层译文。';
-  $('saveHelp').textContent = domain === 'server' ? '保存后请在游戏中预览并确认投稿。' : '保存后请在游戏中点击“应用网页 F12 草稿”。';
+  $('layerHelp').textContent = inApiMode()
+    ? '保存到' + layerNames[state.layer] + '层。跨页队列每次最多发送 30 条。'
+    : '精翻保存到人工层。清空可恢复下层译文。';
+  $('saveHelp').textContent = domain === 'server'
+    ? serverConnection.direct ? '先保存校对后的草稿，再确认发布到服务器。' : '保存后请在游戏中预览并确认投稿。'
+    : '保存后请在游戏中点击“应用网页 F12 草稿”。';
   renderRows();
 }
 function run(action) { return Promise.resolve().then(action).catch(error => { if (error.name !== 'AbortError') say(error.message); }); }
 function canRefreshInBackground() {
   return !hostStopped && !document.hidden && $('glossaryPanel').hidden && $('cfgPanel').hidden &&
-    !state.dirty && !state.busy && !state.saving && state.selected.size === 0 &&
+    !state.dirty && !state.busy && !state.saving && !state.picking &&
     !document.activeElement?.matches('input, textarea, select');
 }
 async function refreshInBackground() {
@@ -552,20 +639,66 @@ async function refreshInBackground() {
     // Retry while the page stays open. Manual refresh reports errors.
   } finally { checkingSync = false; }
 }
-function resetEditing() {
-  state.selected.clear(); state.edits.clear(); state.editRows.clear(); state.exchange = []; state.dirty = false;
+function resetEditing({ keepSelection = false } = {}) {
+  if (!keepSelection) {
+    state.selected.clear();
+    state.excluded.clear();
+  }
+  state.edits.clear(); state.editRows.clear(); state.exchange = []; state.focus = null; state.dirty = false;
   $('exchangePrompt').value = $('exchange').value = '';
+}
+function renderScope(id, caption, options, scope, update) {
+  const included = options.filter(option => inScope(scope, option.id));
+  const all = $(id + 'All');
+  all.checked = options.length > 0 && included.length === options.length;
+  all.indeterminate = included.length > 0 && !all.checked;
+  all.disabled = options.length === 0 || !!state.busy || state.saving || state.picking;
+  all.onchange = () => update(all.checked ? null : new Set());
+  $(id + 'Summary').textContent = all.checked ? '全部' + caption : caption + ' ' + included.length + ' / ' + options.length;
+  const choices = options.map(option => {
+    const label = node('label', 'checkbox');
+    const input = node('input');
+    input.type = 'checkbox';
+    input.checked = inScope(scope, option.id);
+    input.disabled = !!state.busy || state.saving || state.picking;
+    input.onchange = () => {
+      const next = new Set(included.map(item => item.id));
+      if (input.checked) next.add(option.id);
+      else next.delete(option.id);
+      update(next.size === options.length ? null : next);
+    };
+    label.append(input, node('span', '', option.label));
+    return label;
+  });
+  $(id + 'Choices').replaceChildren(...choices);
+}
+function renderScopes() {
+  renderScope('source', '来源', state.groups.map(group => ({ id: group.id, label: group.name + ' · ' + group.count })),
+    sourceScope, next => changeScope('source', next));
+  renderScope('field', '字段', state.fields.map(field => ({ id: field, label: fieldName(field) })),
+    fieldScope, next => changeScope('field', next));
+}
+function changeScope(id, next) {
+  if (state.busy || state.saving || state.picking) { renderScopes(); return; }
+  if (id === 'source') sourceScope = next;
+  else fieldScope = next;
+  for (const [key, row] of state.selected) if (!rowInScope(row)) state.selected.delete(key);
+  if (state.focus && !rowInScope(state.focus)) state.focus = null;
+  state.page = 1;
+  renderScopes();
+  run(load);
 }
 function updateView() {
   const review = state.view === 'review';
+  const apiDraft = inApiMode() && showingDraft();
   for (const view of ['f12', 'server', 'review']) $(view + 'Tab').setAttribute('aria-pressed', view === state.view);
-  $('reviewTools').hidden = !review;
-  $('previewTools').hidden = review;
-  $('collapsePlugins').hidden = state.view !== 'f12';
-  $('collapsePlugins').textContent = state.expanded ? '全部折叠' : '展开所选';
+  $('reviewTools').hidden = !review || apiDraft;
+  $('catalogFilters').hidden = $('catalogSearch').hidden = apiDraft;
+  $('previewTools').hidden = review || inApiMode();
+  $('collapsePlugins').hidden = state.view !== 'f12' || inApiMode();
   $('missingFilter').hidden = review;
   $('reviewDomain').value = state.domain;
-  $('title').textContent = review ? '翻译更新检查' : captions[state.domain];
+  $('title').textContent = apiDraft ? 'API 草稿校对' : review ? '翻译更新检查' : captions[state.domain];
   updateWorkspaceVisibility();
 }
 function switchView(view, domain = view === 'review' ? state.domain : view) {
@@ -582,34 +715,88 @@ function switchView(view, domain = view === 'review' ? state.domain : view) {
     updateView();
   }
   if (state.view === view && state.domain === domain) return;
-  if (state.saving || (state.domain !== domain && (state.busy || !discardConfirmed()))) {
+  if (state.saving || state.picking || (state.domain !== domain && (state.busy || !discardConfirmed()))) {
     $('reviewDomain').value = state.domain;
     return;
   }
   const changedDomain = state.domain !== domain;
   if (changedDomain) {
     resetEditing();
-    Object.assign(state, { domain, layer: 'manual', revision: '', group: '', previous: null });
-    $('layer').value = 'manual';
+    sourceScope = null;
+    fieldScope = null;
+    collapsedPlugins.clear();
+    Object.assign(state, { domain, revision: '', previous: null });
+    state.layer = currentLayer();
     $('receipt').textContent = '';
   }
   if (view === 'review') {
     $('reviewScope').value = state.edits.size ? 'draft' : 'updates';
   }
-  Object.assign(state, { view, page: 1, rows: [], previewRows: [], groups: [], expanded: false, focus: null });
-  $('search').value = ''; $('field').value = ''; $('missing').checked = false;
+  Object.assign(state, { view, page: 1, rows: [], previewRows: [], groups: [], fields: [], focus: null });
+  $('search').value = ''; $('missing').checked = false;
   updateView();
   $('sourceInfo').textContent = '正在读取快照…';
   renderRows();
   say('');
   run(() => load({ restore: changedDomain }));
 }
+function switchWorkMode(mode) {
+  if (state.workMode === mode || state.busy || state.saving || state.picking || !discardConfirmed()) return;
+  const draftVisible = showingDraft();
+  resetEditing({ keepSelection: true });
+  state.workMode = mode;
+  state.layer = currentLayer();
+  if (draftVisible) state.view = state.domain;
+  state.page = 1;
+  state.rows = [];
+  state.previewRows = [];
+  updateView();
+  renderRows();
+  run(() => load({ restore: true }));
+}
+$('manualMode').onclick = () => switchWorkMode('manual');
+$('apiMode').onclick = () => switchWorkMode('api');
+async function toggleApiDraft(open) {
+  state.view = open ? 'review' : state.domain;
+  if (open) $('reviewScope').value = 'draft';
+  state.page = 1;
+  updateView();
+  await load();
+}
+$('apiDraftView').onclick = () => run(() => toggleApiDraft(!showingDraft()));
 function providerChanged() {
   const provider = providers[$('mode').value].find(item => item.id === $('provider').value);
   $('key').value = '';
   $('appId').value = '';
   $('model').value = provider?.model || '';
+  clearModelList('model');
 }
+function clearModelList(model) {
+  $(model + 'List').replaceChildren();
+  $(model + 'Status').textContent = '';
+}
+function setupModelRefresh(model, provider, key) {
+  $(key).addEventListener('input', () => clearModelList(model));
+  $(model + 'Refresh').onclick = async () => {
+    const selected = $(provider).value;
+    const credential = $(key).value;
+    const status = $(model + 'Status');
+    const button = $(model + 'Refresh');
+    button.disabled = true;
+    status.textContent = '正在查询…';
+    try {
+      const { models } = await api('models', { provider: selected, key: credential });
+      if ($(provider).value !== selected || $(key).value !== credential) return;
+      $(model + 'List').replaceChildren(...models.map(value => option(value, value)));
+      status.textContent = '找到 ' + models.length + ' 个模型，可选择或自行输入。';
+      $(model).focus();
+    } catch (error) {
+      if ($(provider).value === selected && $(key).value === credential) status.textContent = error.message;
+    } finally { button.disabled = false; }
+  };
+}
+setupModelRefresh('model', 'provider', 'key');
+setupModelRefresh('cfgModel', 'cfgProvider', 'cfgKey');
 function modeChanged() {
   const mode = $('mode').value;
   setOptions('provider', providers[mode].map(item => option(item.id, item.name)), mode === 'ai' ? 'deepseek' : 'microsoft');
@@ -619,15 +806,103 @@ function modeChanged() {
   updateButtons();
 }
 $('f12Tab').onclick = () => switchView('f12');
-$('serverTab').onclick = () => switchView('server');
+$('serverTab').onclick = () => serverConnection.id ? switchView('server') : $('directServer').click();
+for (const button of $('toolsMenu').querySelectorAll('button')) button.addEventListener('click', () => { $('toolsMenu').open = false; });
+function updateDirectConnect() {
+  $('directConnect').textContent = directProbe?.needsKey ? '验证并连接' : '连接';
+  $('directConnect').disabled = directBusy || !$('directAddress').value.trim() ||
+    (directProbe?.needsKey && !$('directKey').value.trim());
+}
+function resetDirectPrompt() {
+  directProbe = null;
+  $('directKey').value = '';
+  $('directKeyField').hidden = true;
+  $('directStatus').textContent = '';
+  $('directCertificateField').hidden = !directAddressOptions().localHttps;
+  updateDirectConnect();
+}
+function directAddressOptions() {
+  const address = $('directAddress').value.trim();
+  let localHttps = false;
+  try {
+    const url = new URL(address);
+    localHttps = url.protocol === 'https:' && (/^127(?:\.\d{1,3}){3}$/.test(url.hostname) || url.hostname === '[::1]');
+  } catch {}
+  return { address, localHttps, trustLocalCertificate: localHttps && $('directLocalCertificate').checked };
+}
+$('directServer').onclick = () => {
+  $('toolsMenu').open = false;
+  $('directDisconnect').hidden = !serverConnection.direct;
+  if (serverConnection.direct) $('directAddress').value = serverConnection.address;
+  resetDirectPrompt();
+  if (serverConnection.direct) $('directStatus').textContent = '已连接 ' + serverConnection.address;
+  $('directServerDialog').showModal();
+};
+$('directServerDialog').addEventListener('close', resetDirectPrompt);
+$('directServerDialog').addEventListener('cancel', event => { if (directBusy) event.preventDefault(); });
+$('directClose').onclick = () => $('directServerDialog').close();
+$('directAddress').oninput = resetDirectPrompt;
+$('directLocalCertificate').onchange = resetDirectPrompt;
+$('directKey').oninput = updateDirectConnect;
+async function changeDirectConnection(connect) {
+  if (directBusy || state.busy || state.saving || (connect && $('directConnect').disabled) || !discardConfirmed()) return;
+  const { address, trustLocalCertificate } = directAddressOptions();
+  directBusy = true;
+  for (const id of ['directConnect', 'directDisconnect', 'directClose', 'directAddress', 'directKey', 'directLocalCertificate'])
+    $(id).disabled = true;
+  try {
+    if (connect && !directProbe) {
+      $('directStatus').textContent = '正在检测服务端…';
+      directProbe = await api('direct/probe', { address, trustLocalCertificate });
+      if (directProbe.needsKey) {
+        $('directKeyField').hidden = false;
+        $('directStatus').textContent = directProbe.fika ? '检测到 Fika，请填写服务端管理员密钥。'
+          : '远程连接需要管理员密钥。';
+        return;
+      }
+    }
+    const adminKey = connect && directProbe?.needsKey ? $('directKey').value.trim() : '';
+    $('directKey').value = '';
+    $('directStatus').textContent = connect ? '正在授权并拉取原文…' : '正在断开…';
+    await api(connect ? 'direct/connect' : 'direct/disconnect', connect ? { address, adminKey, trustLocalCertificate } : {});
+    resetEditing();
+    sourceScope = null;
+    fieldScope = null;
+    state.previous = null;
+    state.revision = '';
+    await refreshServerConnection();
+    state.layer = currentLayer();
+    $('directServerDialog').close();
+    if (connect) {
+      if (state.domain === 'server' && state.view === 'server') {
+        state.page = 1;
+        await load({ restore: true });
+      } else switchView('server');
+    } else if (state.domain === 'server' && !serverBlocked()) {
+      await load({ restore: true });
+    }
+  } catch (error) {
+    if (!directProbe?.needsKey) directProbe = null;
+    $('directStatus').textContent = error.message;
+  } finally {
+    directBusy = false;
+    for (const id of ['directDisconnect', 'directClose', 'directAddress', 'directKey', 'directLocalCertificate']) $(id).disabled = false;
+    updateDirectConnect();
+    if (directProbe?.needsKey) $('directKey').focus();
+  }
+}
+$('directConnect').onclick = () => changeDirectConnection(true);
+$('directDisconnect').onclick = () => changeDirectConnection(false);
 $('reviewTab').onclick = () => switchView('review');
 $('reviewDomain').onchange = () => switchView('review', $('reviewDomain').value);
 $('reviewScope').onchange = () => { state.page = 1; run(load); };
 $('previewLanguage').onchange = () => renderRows();
 $('clearSearch').onclick = () => { $('search').value = ''; state.page = 1; run(load); };
 $('collapsePlugins').onclick = () => {
-  state.expanded = !state.expanded;
-  $('collapsePlugins').textContent = state.expanded ? '全部折叠' : '展开所选';
+  const groups = [...new Set(state.previewRows.map(row => row.group))];
+  const collapse = groups.some(group => !collapsedPlugins.has(group));
+  for (const group of groups) if (collapse) collapsedPlugins.add(group); else collapsedPlugins.delete(group);
+  $('collapsePlugins').textContent = collapse ? '展开本页' : '全部折叠';
   renderRows();
 };
 $('editorText').oninput = () => {
@@ -636,15 +911,12 @@ $('editorText').oninput = () => {
   updateEffective();
   renderRows({ editor: false });
 };
-$('editorSelect').onchange = () => {
-  if (state.focus) selectRow(state.focus, $('editorSelect').checked);
-  renderRows({ editor: false });
-};
 $('reload').onclick = () => run(async () => {
   await refreshServerConnection();
   if (serverBlocked()) return;
-  if (state.busy || state.saving || !discardConfirmed()) return;
-  resetEditing();
+  if (state.busy || state.saving || state.picking || !discardConfirmed()) return;
+  if (state.domain === 'server' && serverConnection.direct) await api('direct/refresh', {});
+  resetEditing({ keepSelection: true });
   await load({ restore: true });
 });
 $('shutdown').onclick = () => run(async () => {
@@ -657,31 +929,79 @@ $('shutdown').onclick = () => run(async () => {
   say('本地服务已退出。可关闭此页，或从 F12 重新打开。');
   $('shutdown').disabled = true;
 });
-$('group').onchange = () => {
-  state.group = $('group').value;
-  state.expanded = state.view === 'f12';
-  state.page = 1;
-  run(load);
-};
-for (const id of ['field', 'missing']) $(id).onchange = () => { state.page = 1; run(load); };
+$('missing').onchange = () => { state.page = 1; run(load); };
 let searchTimer;
 $('search').oninput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { state.page = 1; run(load); }, 220); };
 $('prev').onclick = () => { state.page--; run(load); };
 $('next').onclick = () => { state.page++; run(load); };
-$('mode').onchange = modeChanged;
-$('provider').onchange = providerChanged;
-$('layer').onchange = () => {
-  if (!discardConfirmed()) { $('layer').value = state.layer; return; }
-  resetEditing();
-  state.layer = $('layer').value;
-  if (state.view === 'review') { state.page = 1; run(load); }
-  else renderRows();
+$('mode').onchange = () => {
+  const layer = currentLayer();
+  if (layer !== state.layer && !discardConfirmed()) {
+    $('mode').value = state.layer;
+    return;
+  }
+  if (layer !== state.layer) resetEditing({ keepSelection: true });
+  state.layer = layer;
+  modeChanged();
+  run(() => load({ restore: true }));
 };
+$('provider').onchange = providerChanged;
 $('pageSelect').onchange = () => {
   for (const row of state.rows) selectRow(row, $('pageSelect').checked);
   renderRows();
 };
-$('clear').onclick = () => { state.selected.clear(); renderRows(); };
+$('clear').onclick = () => { state.selected.clear(); state.excluded.clear(); renderRows(); };
+$('selectMatching').onclick = () => run(async () => {
+  if (!inApiMode() || showingDraft() || state.busy || state.saving || state.picking) return;
+  const domain = state.domain;
+  const revision = state.revision;
+  const params = catalogParams();
+  const filter = params.toString();
+  params.set('selection', 'matching');
+  params.set('revision', revision);
+  state.picking = true;
+  updateButtons();
+  try {
+    const { rows } = await api(domain + '/catalog?' + params);
+    if (state.domain !== domain || state.revision !== revision || !inApiMode() || catalogParams().toString() !== filter) return;
+    state.selected.clear();
+    for (const row of rows) if (!state.excluded.has(keyOf(row))) state.selected.set(keyOf(row), row);
+    renderRows();
+    say('已跨页选中 ' + state.selected.size + ' 条。可取消勾选单条，每次最多翻译 30 条。');
+  } finally { state.picking = false; updateButtons(); }
+});
+async function prepareQueueBatch() {
+  const limit = Math.min(30, draftLimit() - state.edits.size);
+  const revision = state.revision;
+  const domain = state.domain;
+  const edits = [...state.selected.values()].slice(0, limit);
+  if (limit <= 0 || !edits.length) return [];
+  state.picking = true;
+  updateButtons();
+  try {
+    const { rows } = await api(domain + '/selection-resolve', { revision, edits });
+    if (revision !== state.revision || domain !== state.domain || !inApiMode()) return [];
+    const present = new Set(rows.filter(row => row.source.length <= 30000).map(keyOf));
+    const dropped = edits.filter(row => !present.has(keyOf(row)));
+    for (const row of dropped) {
+      state.selected.delete(keyOf(row));
+      state.excluded.add(keyOf(row));
+    }
+    let characters = 0;
+    const batch = [];
+    for (const row of rows) {
+      if (!present.has(keyOf(row))) continue;
+      if (characters + row.source.length > 30000) break;
+      characters += row.source.length;
+      batch.push(row);
+    }
+    if (dropped.length) {
+      renderRows();
+      say('已移除 ' + dropped.length + ' 条已变化或超过长度上限的原文。');
+    }
+    return batch;
+  } finally { state.picking = false; updateButtons(); }
+}
 $('save').onclick = () => run(async () => {
   const domain = state.domain;
   const previous = state.previous;
@@ -690,19 +1010,32 @@ $('save').onclick = () => run(async () => {
   state.saving = true;
   updateButtons();
   try {
-    const result = await api(domain + '/stage', { revision: state.revision, previous, layer: state.layer, edits: sent });
+    const result = await api(domain + '/stage', { revision: state.revision, previous, layer: state.layer, workMode: state.workMode, edits: sent });
     if (state.domain !== domain) return;
     state.previous = result.id;
     state.dirty = JSON.stringify(sent) !== JSON.stringify([...state.edits.values()]);
-    say('已保存 ' + result.count + ' 条草稿，请到游戏确认。');
+    say('已保存 ' + result.count + ' 条草稿。' +
+      (domain === 'server' && serverConnection.direct ? '校对后可直接发布。' : '请到游戏确认。'));
     await load();
   } finally { state.saving = false; updateButtons(); }
 });
+$('directPublish').onclick = () => run(async () => {
+  if ($('directPublish').disabled || !serverConnection.direct) return;
+  if (!window.confirm('将当前已保存草稿发布到 ' + serverConnection.address + '？')) return;
+  state.saving = true;
+  updateButtons();
+  try {
+    const result = await api('direct/publish', { id: state.previous, revision: state.revision });
+    resetEditing({ keepSelection: true });
+    await load({ restore: true });
+    say(result.detail + ' 下一批发布前请重新拉取原文。');
+  } finally { state.saving = false; updateButtons(); }
+});
 $('translate').onclick = () => run(async () => {
-  if (state.busy || state.saving || state.selected.size === 0) return;
+  if (!inApiMode() || state.busy || state.saving || state.picking || $('translate').disabled) return;
   const mode = $('mode').value;
-  if (state.domain === 'f12' && state.layer !== mode) throw new Error('请先将译文层切换至所选翻译方式。');
-  const selected = [...state.selected.values()];
+  const selected = await prepareQueueBatch();
+  if (!selected.length) return;
   const editsBefore = new Map(state.edits);
   const revision = state.revision;
   const domain = state.domain;
@@ -710,8 +1043,8 @@ $('translate').onclick = () => run(async () => {
   if (!provider) return;
   const description = '将 ' + selected.length + ' 条原文发送给 ' + provider.name + '，可能计费。';
   if (mode === 'ai' ? !await confirmPaidApi(description) : !window.confirm(description + '继续？')) return;
-  if (state.busy || revision !== state.revision || domain !== state.domain) return;
-  const body = { revision, edits: selected.map(row => ({ id: row.id, group: row.group })), mode, provider: provider.id };
+  if (state.busy || revision !== state.revision || domain !== state.domain || !inApiMode() || mode !== $('mode').value) return;
+  const body = { revision, edits: selected.map(({ id, group, stamp }) => ({ id, group, stamp })), mode, provider: provider.id };
   for (const id of ['key', 'model', 'reasoning', 'prompt', 'appId', 'region', 'sourceLanguage']) body[id] = $(id).value;
   for (const id of ['timeout', 'batch', 'input', 'output', 'requests', 'tokens', 'delay', 'retries']) body[id] = $(id).valueAsNumber;
   body.json = $('json').checked;
@@ -725,12 +1058,25 @@ $('translate').onclick = () => run(async () => {
     if (revision !== state.revision) { say('快照已变化，已跳过本次结果。'); return; }
     const applicable = result.values.filter(row => editsBefore.get(keyOf(row)) === state.edits.get(keyOf(row)));
     const byKey = new Map(selected.map(row => [keyOf(row), row]));
-    for (const row of applicable) patch(byKey.get(keyOf(row)), row.text);
-    if (applicable.length && state.view !== 'review') switchView('review');
-    else if (applicable.length) { $('reviewScope').value = 'draft'; state.page = 1; await load(); }
+    for (const row of applicable) {
+      patch(byKey.get(keyOf(row)), row.text);
+      state.selected.delete(keyOf(row));
+      state.excluded.add(keyOf(row));
+    }
+    // Move rejected items to the back so other pending pages can still progress.
+    for (const row of selected) {
+      const k = keyOf(row);
+      const pending = state.selected.get(k);
+      if (pending) {
+        state.selected.delete(k);
+        state.selected.set(k, pending);
+      }
+    }
+    if (applicable.length) await toggleApiDraft(true);
     else renderRows();
     const reasons = (result.reasons || []).map(({ reason, count }) => '\n' + count + ' 条 · ' + reason).join('');
-    say('已回填 ' + applicable.length + ' 条，' + result.failed + ' 条未取得有效译文。' +
+    say('已回填 ' + applicable.length + ' 条，队列剩余 ' + state.selected.size + ' 条。' +
+      (result.failed ? ' 本批 ' + result.failed + ' 条未取得有效译文。' : '') +
       (result.reused ? ` 复用本地检查点 ${result.reused} 条。` : '') +
       (applicable.length !== result.values.length ? ' 已保留任务期间手工改动的条目。' : '') +
       (result.stopped ? ' 任务在完成前停止。' : '') + reasons);
@@ -739,9 +1085,10 @@ $('translate').onclick = () => run(async () => {
 $('cancel').onclick = () => {
   if (state.busy) { state.busy.abort(); say('已取消等待。供应商可能已处理已送达的请求。'); }
 };
-$('promptBtn').onclick = () => run(() => {
-  const rows = [...state.selected.values()];
-  if (rows.length < 1 || rows.length > 30) throw new Error('每批请选择 1 至 30 条。');
+$('promptBtn').onclick = () => run(async () => {
+  if (!inApiMode() || $('promptBtn').disabled) return;
+  const rows = await prepareQueueBatch();
+  if (!rows.length) return;
   state.exchange = rows;
   const settings = state.domain === 'f12'
     ? '保留实际按键和组合键，例如 Shift 单击、Alt+Tab、Mouse0。Map tab 指地图页签。独立图形缩写及按键枚举可保留原文。'
@@ -962,6 +1309,7 @@ function cfgProviderChanged() {
   const provider = providers.ai.find(item => item.id === $('cfgProvider').value);
   $('cfgKey').value = '';
   $('cfgModel').value = provider?.model || '';
+  clearModelList('cfgModel');
 }
 $('cfgTab').onclick = () => showCfg(true);
 $('cfgProvider').onchange = cfgProviderChanged;
@@ -1032,9 +1380,10 @@ window.addEventListener('beforeunload', event => {
 });
 run(async () => {
   $('shutdown').hidden = document.querySelector('meta[name=workbench-launch]').content !== 'desktop';
+  openBrowserLease();
+  renewBrowserTab();
   aiPaused = (await api('ai-stop')).paused;
   showAiStop();
-  renewBrowserTab();
   window.setInterval(renewBrowserTab, 15000);
   window.setInterval(refreshInBackground, 5000);
   document.addEventListener('visibilitychange', () => {
@@ -1048,4 +1397,6 @@ run(async () => {
   updateView();
   await refreshServerConnection();
   await load({ restore: true });
+  if (document.querySelector('meta[name=workbench-mode]').content === 'standalone' && !serverConnection.id)
+    $('directServer').click();
 });

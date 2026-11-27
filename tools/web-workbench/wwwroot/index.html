@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="workbench-session" content="__WORKBENCH_SESSION__">
   <meta name="workbench-launch" content="__WORKBENCH_LAUNCH__">
+  <meta name="workbench-mode" content="__WORKBENCH_MODE__">
   <title>Volcano 汉化工作台</title>
   <link rel="stylesheet" href="/workbench.css">
   <script src="/glossary-schema.js" defer></script>
@@ -14,15 +15,32 @@
   <header class="top">
     <div class="brand"><span>VOLCANO</span><h1>汉化工作台</h1></div>
     <nav aria-label="工作区">
-      <button id="f12Tab" aria-pressed="true">F12 插件设置</button>
-      <button id="cfgTab" aria-pressed="false">离线 CFG</button>
-      <button id="serverTab" aria-pressed="false" hidden>服务端游戏文本</button>
-      <button id="reviewTab" aria-pressed="false">翻译更新检查</button>
-      <button id="glossaryTab" aria-pressed="false">AI 翻译术语表</button>
+      <button id="f12Tab" aria-pressed="true">F12 设置</button>
+      <button id="serverTab" aria-pressed="false">服务端文本</button>
+      <details class="tool-menu" id="toolsMenu">
+        <summary>更多</summary>
+        <div class="tool-items">
+          <button id="directServer" type="button">连接 SPT 服务端</button>
+          <button id="reviewTab" aria-pressed="false">翻译更新检查</button>
+          <button id="glossaryTab" aria-pressed="false">AI 翻译术语表</button>
+          <button id="cfgTab" aria-pressed="false">离线 CFG</button>
+          <button id="shutdown" hidden>停止本地网页服务</button>
+        </div>
+      </details>
     </nav>
-    <button id="reload">刷新快照与回执</button>
-    <button id="shutdown" title="停止后台网页服务。下次从 F12 或启动程序重新打开。" hidden>停止本地网页服务</button>
   </header>
+  <dialog id="directServerDialog" aria-labelledby="directServerTitle">
+    <h2 id="directServerTitle">连接 SPT 服务端</h2>
+    <label>服务端地址<input id="directAddress" type="url" maxlength="400" value="https://127.0.0.1:6969" spellcheck="false"></label>
+    <label id="directKeyField" hidden>管理员密钥<input id="directKey" type="password" maxlength="256" autocomplete="off" spellcheck="false"></label>
+    <label id="directCertificateField" class="checkbox"><input id="directLocalCertificate" type="checkbox" checked>接受本机 SPT 的自签名证书</label>
+    <p id="directStatus" role="status"></p>
+    <div class="actions">
+      <button id="directClose" type="button">关闭</button>
+      <button id="directDisconnect" type="button" hidden>断开</button>
+      <button id="directConnect" type="button" class="primary">连接</button>
+    </div>
+  </dialog>
   <dialog id="apiNotice" aria-labelledby="apiNoticeTitle">
     <h2 id="apiNoticeTitle">确认自费使用 API</h2>
     <p id="apiNoticeContext"></p>
@@ -62,7 +80,8 @@
           <h2>翻译与导出</h2>
           <label>供应商<select id="cfgProvider"></select></label>
           <label>API 密钥<input id="cfgKey" type="password" maxlength="512" autocomplete="off" spellcheck="false"></label>
-          <label>模型<input id="cfgModel" maxlength="150" placeholder="使用供应商预设"></label>
+          <div><label>模型</label><div class="model-control"><input id="cfgModel" list="cfgModelList" maxlength="150" aria-label="模型" placeholder="可自行输入"><button id="cfgModelRefresh" type="button">刷新</button></div>
+            <datalist id="cfgModelList"></datalist><p class="model-note" id="cfgModelStatus" role="status"></p></div>
           <label>本次最多字段数<input id="cfgCount" type="number" min="1" max="120" value="30"></label>
           <p>调用 API 可能计费。仅发送翻译字段及其上下文。</p>
           <div class="actions api-actions"><button id="cfgApiStop" class="api-stop" type="button">紧急停止 API</button><button id="cfgTranslate" disabled>翻译范围内未译</button><button id="cfgCancel" disabled>取消等待</button></div>
@@ -101,6 +120,7 @@
     <div class="summary" id="translationSummary">
       <div><h2 id="title">F12 插件设置</h2><p id="sourceInfo">正在读取快照…</p></div>
       <p id="receipt" class="receipt" role="status"></p>
+      <button id="reload" type="button">刷新快照与回执</button>
     </div>
     <div class="workspace" id="translationWorkspace">
       <section class="catalog" aria-label="原文和译文">
@@ -108,42 +128,69 @@
           <label>校对来源<select id="reviewDomain"><option value="f12">F12 插件设置</option><option id="serverReviewOption" value="server" hidden disabled>服务端游戏文本</option></select></label>
           <label>显示范围<select id="reviewScope"><option value="updates">发生变化</option><option value="translated">已有译文</option><option value="draft">本次编辑与草稿</option></select></label>
         </div>
-        <div class="filters manager-bar">
-          <label>来源<select id="group"></select></label>
-          <label>字段<select id="field"></select></label>
+        <div class="filters manager-bar" id="catalogFilters">
+          <details class="source-picker" id="sourcePicker">
+            <summary id="sourceSummary">全部来源</summary>
+            <div class="source-options">
+              <label class="checkbox"><input id="sourceAll" type="checkbox">全选来源</label>
+              <div id="sourceChoices"></div>
+            </div>
+          </details>
+          <details class="source-picker" id="fieldPicker">
+            <summary id="fieldSummary">全部字段</summary>
+            <div class="source-options">
+              <label class="checkbox"><input id="fieldAll" type="checkbox">全选字段</label>
+              <div id="fieldChoices"></div>
+            </div>
+          </details>
           <label id="missingFilter" class="checkbox"><input id="missing" type="checkbox">仅未翻译</label>
           <label id="previewTools">显示<select id="previewLanguage"><option value="both" selected>双语</option><option value="zh">中文</option><option value="en">英文原文</option></select></label>
         </div>
-        <div class="manager-bar manager-search">
+        <div class="manager-bar manager-search" id="catalogSearch">
           <label>搜索<input id="search" type="search" maxlength="120" placeholder="插件、原文、译文或标识"></label>
           <button id="clearSearch">清除</button>
           <button id="collapsePlugins">全部折叠</button>
         </div>
-        <div class="list-header"><label class="checkbox"><input id="pageSelect" type="checkbox">选中本页</label><span id="total"></span></div>
+        <div class="list-header">
+          <div id="apiSelection" class="selection-tools" hidden>
+            <label id="pageSelection" class="checkbox"><input id="pageSelect" type="checkbox">选中本页</label>
+            <button id="selectMatching" type="button">选中全部匹配（跨页）</button>
+            <button id="apiDraftView" type="button">校对草稿</button>
+          </div>
+          <span id="total"></span>
+        </div>
         <div id="rows" class="manager-scroll"></div>
         <footer class="pagination"><button id="prev">上一页</button><span id="page"></span><button id="next">下一页</button></footer>
       </section>
       <aside class="controls" aria-label="翻译与草稿">
+        <nav class="work-modes" aria-label="翻译模式">
+          <button id="manualMode" type="button" aria-pressed="true">精翻</button>
+          <button id="apiMode" type="button" aria-pressed="false">API 翻译</button>
+        </nav>
+        <div id="taskBar" class="actions api-actions task-bar" hidden><button id="apiStop" class="api-stop" type="button">紧急停止</button><button id="translate" class="primary">开始翻译</button><button id="cancel" disabled>取消等待</button></div>
+        <p id="status" role="status" aria-live="polite"></p>
+        <div id="manualEditor">
         <h2 id="editorTitle">译文编辑</h2>
         <p id="editorEmpty">选择左侧文字开始编辑。</p>
         <div id="editor" hidden>
           <div id="editorFields" class="editor-fields" aria-label="当前设置字段"></div>
           <pre id="editorSource" class="editor-source"></pre>
           <label>当前字段的译文<textarea id="editorText" rows="4" maxlength="4000" spellcheck="false"></textarea></label>
-          <label class="checkbox"><input id="editorSelect" type="checkbox">加入翻译选中项</label>
           <p id="editorEffective"></p>
         </div>
-        <label>译文层<select id="layer"><option value="manual">人工</option><option value="ai">AI</option><option value="machine">机翻</option></select></label>
+        </div>
         <p id="layerHelp"></p>
-        <div class="draft-stats"><strong id="counts">已选 0 条</strong><button id="clear">清除选中</button></div>
+        <div class="draft-stats"><strong id="counts">待保存 0 条</strong><button id="clear" hidden>清除选中</button></div>
         <button id="save" class="primary">保存网页草稿</button>
+        <button id="directPublish" type="button" hidden>发布已保存草稿</button>
         <p id="saveHelp"></p>
-        <details id="providerControls">
+        <details id="providerControls" open hidden>
           <summary>接口翻译</summary>
           <label>方式<select id="mode"><option value="ai">AI 翻译</option><option value="machine">机器翻译</option></select></label>
           <label>供应商<select id="provider"></select></label>
           <label>API 密钥<input id="key" type="password" maxlength="512" autocomplete="off" spellcheck="false"></label>
-          <div id="aiMain"><label>模型<input id="model" maxlength="150" placeholder="使用供应商预设"></label></div>
+          <div id="aiMain"><label>模型</label><div class="model-control"><input id="model" list="modelList" maxlength="150" aria-label="模型" placeholder="可自行输入"><button id="modelRefresh" type="button">刷新</button></div>
+            <datalist id="modelList"></datalist><p class="model-note" id="modelStatus" role="status"></p></div>
           <div id="machineFields" hidden>
             <label>应用 ID<input id="appId" maxlength="150" autocomplete="off"></label>
             <label>区域<input id="region" maxlength="80"></label>
@@ -158,27 +205,25 @@
               <div class="parameters">
                 <label>输入字符上限<input id="input" type="number" min="1000" max="30000" value="12000"></label>
                 <label>输出 Token 上限<input id="output" type="number" min="128" max="16384" value="4096"></label>
-                <label>最多请求次数<input id="requests" type="number" min="1" max="30" value="12"></label>
-                <label>任务 Token 预算<input id="tokens" type="number" min="0" max="500000" value="120000"></label>
+                <label>本批最多请求次数<input id="requests" type="number" min="1" max="30" value="12"></label>
+                <label>本批 Token 预算<input id="tokens" type="number" min="0" max="500000" value="120000"></label>
                 <label>请求间隔（毫秒）<input id="delay" type="number" min="0" max="5000" value="400"></label>
                 <label>临时错误重试<input id="retries" type="number" min="0" max="2" value="0"></label>
               </div>
               <label>推理强度<select id="reasoning"><option>off</option><option>default</option><option>low</option><option>medium</option><option>high</option></select></label>
               <label class="checkbox"><input id="json" type="checkbox" checked>请求 JSON 输出</label>
               <label>附加提示词<textarea id="prompt" maxlength="1500" rows="2"></textarea></label>
-              <p>发送前预留输入和输出额度。填 0 使用默认任务预算。</p>
+              <p>每次点击翻译下一批分别计算预算。发送前预留输入和输出额度。填 0 使用默认预算。</p>
             </div>
           </details>
-          <div class="actions api-actions"><button id="apiStop" class="api-stop" type="button">紧急停止 API</button><button id="translate">翻译选中项</button><button id="cancel" disabled>取消等待</button></div>
-          <p>每次最多 30 条。原文将发送给所选供应商，可能计费。</p>
+          <p>每批最多 30 条，发送原文可能计费。</p>
         </details>
-        <details><summary>复制提示词与回填</summary>
+        <details id="apiExchange" hidden><summary>复制提示词与回填</summary>
           <button id="promptBtn">生成选中项提示词</button>
           <label>提示词<textarea id="exchangePrompt" readonly rows="3"></textarea></label>
           <label>译文 JSON<textarea id="exchange" rows="3" maxlength="160000"></textarea></label>
           <button id="import">回填到编辑区</button>
         </details>
-        <p id="status" role="status" aria-live="polite"></p>
       </aside>
     </div>
   </main>

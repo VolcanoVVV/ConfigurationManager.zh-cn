@@ -183,18 +183,12 @@ namespace ConfigurationManagerZhCn
         private static string OpenWorkbench()
         {
             var tools = Path.Combine(Paths.GameRootPath, "网页汉化工作台");
-            var executable = Path.Combine(tools, "网页汉化工作台.exe");
-            if (!File.Exists(executable))
-            {
-                // Allow an existing install to migrate the DLL and the web host separately.
-                tools = Path.Combine(Paths.GameRootPath, "WebWorkbench");
-                executable = Path.Combine(tools, "WebWorkbench.exe");
-            }
-            if (!File.Exists(executable))
-                throw new FileNotFoundException("请先将安装包中的「网页汉化工作台」文件夹解压到当前游戏目录。");
+            var executable = Path.Combine(Paths.GameRootPath, "网页汉化工作台.exe");
+            if (!File.Exists(executable) || !File.Exists(Path.Combine(tools, "网页汉化工作台.dll")))
+                throw new FileNotFoundException("请下载独立网页汉化工作台并完整解压到游戏根目录，确保根目录有「网页汉化工作台.exe」。");
 
-            if (!File.Exists(Path.Combine(Files.DirectoryPath, "f12.snapshot.json")) &&
-                JsoncLocalization.GetSnapshots().Any())
+            var snapshot = Files.Read("f12", "snapshot");
+            if ((int?)snapshot?["draftVersion"] != WebWorkbenchFiles.F12DraftVersion && JsoncLocalization.GetSnapshots().Any())
                 ExportLocal();
 
             using (Process.Start(new ProcessStartInfo(executable)
@@ -260,11 +254,15 @@ namespace ConfigurationManagerZhCn
             if (rows.Count == 0) throw new InvalidOperationException("尚未收集到可翻译的插件设置。");
             var file = Snapshot(Guid.NewGuid().ToString("N"), rows);
             file["updateBasis"] = "f12-tracking";
+            file["draftVersion"] = WebWorkbenchFiles.F12DraftVersion;
             file["removed"] = removed;
             var previous = Files.Read("f12", "snapshot");
             if (previous != null && JToken.DeepEquals(previous["rows"], rows) &&
                 JToken.DeepEquals(previous["removed"], removed) && (string)previous["updateBasis"] == "f12-tracking")
-                return "F12 快照已是最新。";
+            {
+                if ((int?)previous["draftVersion"] == WebWorkbenchFiles.F12DraftVersion) return "F12 快照已是最新。";
+                file["revision"] = previous["revision"];
+            }
             Files.Write("f12", "snapshot", file);
             return "已导出 " + rows.Count + " 条 F12 文本。";
         }
@@ -348,9 +346,6 @@ namespace ConfigurationManagerZhCn
             var snapshotFile = Files.Read("f12", "snapshot");
             if ((string)snapshotFile?["revision"] != (string)draft["revision"])
                 throw new InvalidOperationException("草稿来自旧快照，请重新核对。");
-            var guid = (string)draft["group"];
-            var snapshot = JsoncLocalization.GetSnapshots().FirstOrDefault(item => item.Guid == guid);
-            if (snapshot == null) throw new InvalidOperationException("当前游戏没有这个插件的设置。");
             var layer = (string)draft["layer"];
             TranslationLayer parsed;
             switch (layer)
@@ -360,27 +355,53 @@ namespace ConfigurationManagerZhCn
                 case "machine": parsed = TranslationLayer.Machine; break;
                 default: throw new InvalidOperationException("不支持该译文层。");
             }
-            var current = TranslationWorkItem.Index(snapshot.CreateWorkItems());
-            var items = new List<TranslationWorkItem>();
-            var values = new Dictionary<string, string>(StringComparer.Ordinal);
-            var expected = new Dictionary<string, string>(StringComparer.Ordinal);
-            foreach (var row in ((JArray)draft["edits"]).OfType<JObject>())
+            var edits = (JArray)draft["edits"];
+            var rows = edits.OfType<JObject>().ToArray();
+            if (rows.Length != edits.Count) throw new InvalidOperationException("草稿含无效条目。");
+            var snapshots = JsoncLocalization.GetSnapshots().ToDictionary(item => item.Guid, StringComparer.Ordinal);
+            var batches = new List<(string Guid, List<TranslationWorkItem> Items, Dictionary<string, string> Expected,
+                Dictionary<string, string> Values)>();
+            foreach (var group in rows.GroupBy(row => (string)row["group"] ?? (string)draft["group"], StringComparer.Ordinal))
             {
-                var id = (string)row["id"];
-                if (string.IsNullOrEmpty(id) || !current.TryGetValue(id, out var item) || item.Source != (string)row["source"] ||
-                    item.Context != (string)row["context"] || row["base"]?.Type != JTokenType.String)
-                    throw new InvalidOperationException("原文、语境或草稿已变化，整批未应用。请重新导出并核对。");
-                var value = ValidateText(row, item, parsed == TranslationLayer.Manual);
-                if (values.ContainsKey(id)) throw new InvalidOperationException("草稿含重复条目。");
-                items.Add(item);
-                values.Add(id, value);
-                expected.Add(id, (string)row["base"]);
+                if (string.IsNullOrEmpty(group.Key) || !snapshots.TryGetValue(group.Key, out var snapshot))
+                    throw new InvalidOperationException("当前游戏没有草稿对应的插件设置，请重新导出。");
+                var current = TranslationWorkItem.Index(snapshot.CreateWorkItems());
+                var items = new List<TranslationWorkItem>();
+                var values = new Dictionary<string, string>(StringComparer.Ordinal);
+                var expected = new Dictionary<string, string>(StringComparer.Ordinal);
+                foreach (var row in group)
+                {
+                    var id = (string)row["id"];
+                    if (string.IsNullOrEmpty(id) || !current.TryGetValue(id, out var item) || item.Source != (string)row["source"] ||
+                        item.Context != (string)row["context"] || row["base"]?.Type != JTokenType.String)
+                        throw new InvalidOperationException("原文、语境或草稿已变化，整批未应用。请重新导出并核对。");
+                    if (values.ContainsKey(id)) throw new InvalidOperationException("草稿含重复条目。");
+                    values.Add(id, ValidateText(row, item, parsed == TranslationLayer.Manual));
+                    items.Add(item);
+                    expected.Add(id, (string)row["base"]);
+                }
+                JsoncLocalization.CheckWebLayer(group.Key, parsed, items, expected);
+                batches.Add((group.Key, items, expected, values));
             }
-            if (items.Count != ((JArray)draft["edits"]).Count) throw new InvalidOperationException("草稿含无效条目。");
-            JsoncLocalization.SaveWebLayer(guid, parsed, items, expected, values);
+            var saved = 0;
+            string failure = null;
+            foreach (var batch in batches)
+            {
+                try
+                {
+                    JsoncLocalization.SaveWebLayer(batch.Guid, parsed, batch.Items, batch.Expected, batch.Values);
+                    saved += batch.Items.Count;
+                }
+                catch (Exception ex) when (saved > 0)
+                {
+                    failure = batch.Guid + " 保存失败：" + ex.GetBaseException().Message;
+                    break;
+                }
+            }
             TranslationPanel.WebTranslationsSaved();
-            var detail = "已保存 " + items.Count + " 条并请求刷新 F12。";
-            Receipt("f12", draft, "saved", detail);
+            var detail = "已保存 " + saved + " 条并请求刷新 F12。";
+            if (failure != null) detail += " 还有 " + (rows.Length - saved) + " 条待处理。" + failure;
+            Receipt("f12", draft, failure == null ? "saved" : "partial", detail);
             try { ExportLocal(); }
             catch (Exception ex) { return detail + " 网页快照刷新失败：" + ex.GetBaseException().Message; }
             return detail;

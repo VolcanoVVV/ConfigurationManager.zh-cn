@@ -27,7 +27,7 @@ ACTIVE_JSON = 'BepInEx/plugins/Newtonsoft.Json.dll'
 PLUGIN = 'BepInEx/plugins/ConfigurationManager.zh-cn.dll'
 RUNTIMES = ('Mono-SPT4x', 'IL2CPP-SPT5.0be')
 MONO_HOSTS = (('3.11', '3.11.0'), ('4.0', '4.0'), ('4.1', '4.1'))
-DEFAULT_OUTPUT = ROOT / 'releases/2.14.0'
+DEFAULT_OUTPUT = ROOT / 'releases/separate'
 WEB_PROJECT = ROOT / 'tools/web-workbench/WebWorkbench.csproj'
 WEB_DIST = ROOT / 'obj' / CONTENT.WEB_NAME
 _probe_ready = False
@@ -140,16 +140,22 @@ def inspect_client_package(path: Path) -> dict:
             raise ValueError('Missing mandatory client package files: ' + str(required - set(names)))
         json_files_expected = {'BepInEx/plugins/zh-cn/UI.json'}
         if language != 'legacy':
-            if (manifest.get('packageLanguage') != language or layout_version not in (2, 3, 4, 5, 6, CONTENT.LAYOUT_VERSION)
+            if (manifest.get('packageLanguage') != language or layout_version not in (2, 3, 4, 5, 6, 7, CONTENT.LAYOUT_VERSION)
                     or layout_version >= CONTENT.CHINESE_WEB_LAYOUT_VERSION and language not in CONTENT.LANGUAGES
                     or manifest.get('payloadPath') != paths['payload']):
                 raise ValueError('Package language/layout mismatch')
-            has_web = layout_version in (3, 4, 6, CONTENT.LAYOUT_VERSION) or (layout_version == 5 and 'webWorkbench' in manifest)
+            has_web = layout_version in (3, 4, 6, 7) or (layout_version == 5 and 'webWorkbench' in manifest)
+            if manifest.get('webWorkbenchSeparate') is True:
+                if layout_version not in (7, CONTENT.LAYOUT_VERSION) or 'webWorkbench' in manifest:
+                    raise ValueError('Invalid standalone web package declaration')
+                has_web = False
+            elif layout_version == CONTENT.LAYOUT_VERSION:
+                raise ValueError('Current client packages require separate web distribution')
             web_root, web_names = CONTENT.web_payload(layout_version)
             expected = required | {'BepInEx/plugins/zh-cn/glossary/eft.zh-CN.example.tsv'}
             if manifest['runtime'] == RUNTIMES[1]: expected.add(ACTIVE_JSON)
             translations = 'BepInEx/plugins/zh-cn/translations/'
-            if layout_version >= CONTENT.LAYOUT_VERSION:
+            if layout_version >= CONTENT.FLAT_TRANSLATIONS_LAYOUT_VERSION:
                 expected.add(translations)
             else:
                 expected.update(translations + layer + '/' for layer in ('Manual', 'API', 'MT'))
@@ -199,15 +205,13 @@ def inspect_client_package(path: Path) -> dict:
     return manifest
 
 def client_package(runtime: str, binary_dir: Path, output: Path, game_root: Path = GAME_ROOT,
-                   language: str = 'zh-CN', web_host: Path | None = None) -> Path:
+                   language: str = 'zh-CN') -> Path:
     if language not in CONTENT.LANGUAGES:
         raise ValueError('Only the Chinese client edition is published')
     paths = CONTENT.layout(language)
     manifest = preflight(runtime, binary_dir, game_root)  # No ZIP is published on missing or invalid inputs.
-    web_files = workbench_files(web_host if web_host is not None else WEB_DIST)
-    manifest.update(packageLanguage=language, packageLayoutVersion=CONTENT.LAYOUT_VERSION, payloadPath=paths['payload'])
-    if web_files:
-        manifest['webWorkbench'] = {name: sha(data) for name, data in web_files.items()}
+    manifest.update(packageLanguage=language, packageLayoutVersion=CONTENT.LAYOUT_VERSION,
+                    payloadPath=paths['payload'], webWorkbenchSeparate=True)
     version = re.search(r'PluginVersion\s*=\s*"([^"]+)"', (ROOT / 'ConfigurationManagerZhCnPlugin.cs').read_text(encoding='utf-8-sig')).group(1)
     if manifest['pluginVersion'] != version + '.0':
         raise ValueError('Stale client assembly version')
@@ -228,12 +232,39 @@ def client_package(runtime: str, binary_dir: Path, output: Path, game_root: Path
             script = (ROOT / 'tools/Check-Dependencies.ps1').read_text(encoding='utf-8-sig').replace("'DEPENDENCIES.txt'", repr(Path(paths['manifest']).name))
             archive.writestr(paths['script'], script.encode('utf-8-sig'))
             archive.writestr(paths['manifest'], json.dumps(manifest, ensure_ascii=False, indent=2).encode('utf-8'))
-            installation = CONTENT.installation(language, runtime, version, bool(web_files))
+            installation = CONTENT.installation(language, runtime, version)
             archive.writestr(paths['readme'], installation.encode('utf-8-sig'))
-            for target, data in web_files.items():
-                archive.writestr(target, data)
             archive.writestr('BepInEx/plugins/zh-cn/translations/', b'')
         inspect_client_package(candidate)
+        inherit_release_permissions(candidate)
+        os.replace(candidate, destination)
+    return destination
+
+
+def publish_web() -> None:
+    subprocess.run([DOTNET, 'publish', str(WEB_PROJECT), '-c', 'Release', '--self-contained', 'false',
+                    '-p:PublishStandaloneLauncher=true', '-o', str(WEB_DIST), '-v:q'], check=True)
+
+
+def web_package(output: Path) -> Path:
+    payload = workbench_files(WEB_DIST)
+    version = re.search(r'PluginVersion\s*=\s*"([^"]+)"', (ROOT / 'ConfigurationManagerZhCnPlugin.cs').read_text(encoding='utf-8-sig')).group(1)
+    output.mkdir(parents=True, exist_ok=True)
+    destination = output / f'网页汉化工作台-{version}-Windows.zip'
+    files = {**payload,
+             CONTENT.WEB_NAME + '.exe': (WEB_DIST / 'launcher' / (CONTENT.WEB_NAME + '.exe')).read_bytes(),
+             '网页工作台安装说明.txt': CONTENT.web_installation().encode('utf-8-sig'),
+             CONTENT.WEB_INSTALL_DIR + 'eft.zh-CN.example.tsv': (ROOT / 'zh-cn/glossary/eft.zh-CN.example.tsv').read_bytes(),
+             CONTENT.WEB_INSTALL_DIR + '说明与工具/Newtonsoft.Json-许可证.md': (DEPENDENCY.parent / 'LICENSE.md').read_bytes()}
+    with tempfile.TemporaryDirectory(prefix='.web-package-', dir=output) as folder:
+        inherit_release_permissions(Path(folder))
+        candidate = Path(folder) / destination.name
+        with ZipFile(candidate, 'w', compression=ZIP_DEFLATED) as archive:
+            for name, content in files.items():
+                archive.writestr(name, content)
+        with ZipFile(candidate) as archive:
+            if set(archive.namelist()) != set(files) or archive.testzip() is not None:
+                raise ValueError('Standalone web package verification failed')
         inherit_release_permissions(candidate)
         os.replace(candidate, destination)
     return destination
@@ -242,19 +273,22 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument('--language', choices=(*CONTENT.LANGUAGES, 'all'), default='zh-CN', help='Generate the Chinese edition for both runtimes')
+    parser.add_argument('--target', choices=('client', 'web', 'all'), default='client', help='Select client ZIPs, standalone web ZIP, or both')
     parser.add_argument('--no-build', action='store_true', help='Reuse prebuilt client binaries and the published web host')
     args = parser.parse_args()
     output = args.output.resolve()
     if not output.is_relative_to(ROOT / 'releases'):
         raise ValueError('Client release output must stay inside the client releases directory')
-    if not args.no_build:
+    if not args.no_build and args.target != 'web':
         subprocess.run([DOTNET, 'msbuild', str(ROOT / 'ConfigurationManager.zh-cn.csproj'), '/p:Configuration=Release', '/v:minimal', '/nologo'], check=True)
         subprocess.run([DOTNET, 'build', str(ROOT / 'ConfigurationManager.zh-cn.IL2CPP.csproj'), '--no-restore', '-c', 'Release', '-v:q'], check=True)
-        subprocess.run([DOTNET, 'publish', str(WEB_PROJECT), '-c', 'Release', '--self-contained', 'false',
-                        '-o', str(WEB_DIST), '-v:q'], check=True)
+    if not args.no_build and args.target != 'client':
+        publish_web()
     languages = CONTENT.LANGUAGES if args.language == 'all' else (args.language,)
-    paths = [client_package(runtime, ROOT / binary, output, language=language, web_host=WEB_DIST)
-        for runtime, binary in zip(RUNTIMES, ('bin/Release', 'bin/IL2CPP/Release')) for language in languages]
+    paths = [client_package(runtime, ROOT / binary, output, language=language)
+        for runtime, binary in zip(RUNTIMES, ('bin/Release', 'bin/IL2CPP/Release')) for language in languages] if args.target != 'web' else []
+    if args.target != 'client':
+        paths.append(web_package(output))
     checksums = output / 'SHA256SUMS.txt'
     checksums.write_text(''.join(sha(path.read_bytes()) + '  ' + path.name + '\n' for path in paths), encoding='utf-8')
     inherit_release_permissions(checksums)

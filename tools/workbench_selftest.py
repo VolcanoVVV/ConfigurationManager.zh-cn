@@ -29,13 +29,17 @@ def check_archives(folder):
     checks = dict(line.split('  ', 1)[::-1]
                   for line in (folder / 'SHA256SUMS.txt').read_text(encoding='utf-8-sig').splitlines())
     archives = [next(folder.glob(f'*-{runtime}-中文版.zip')) for runtime in ('Mono-SPT4x', 'IL2CPP-SPT5.0be')]
-    for archive in archives:
+    standalone = next(folder.glob('网页汉化工作台-*-Windows.zip'), None)
+    if standalone is None:
+        raise ValueError('请将独立网页工作台 ZIP 和两个客户端 ZIP 放在同一目录。')
+    for archive in [*archives, standalone]:
         if sha256(archive.read_bytes()).hexdigest() != checks.get(archive.name):
             raise ValueError(f'安装包校验失败：{archive.name}')
         with ZipFile(archive) as package:
-            if CLIENT_DLL not in package.namelist() or package.testzip() is not None:
+            entry = '网页汉化工作台.exe' if archive == standalone else CLIENT_DLL
+            if entry not in package.namelist() or package.testzip() is not None:
                 raise ValueError(f'无法完整读取：{archive.name}')
-    return archives[0]
+    return archives[0], standalone
 
 
 def server_fixture(destination):
@@ -45,6 +49,8 @@ def server_fixture(destination):
             shutil.copy2(source, destination)
     for name in ('Shared', 'Properties', 'docs', 'tools/glossary-editor'):
         shutil.copytree(SERVER / name, destination / name)
+    if (SERVER / 'src').is_dir():
+        shutil.copytree(SERVER / 'src', destination / 'src')
     glossary = destination / 'glossary'
     glossary.mkdir()
     shutil.copy2(SERVER / 'glossary/eft.zh-CN.example.tsv', glossary)
@@ -111,7 +117,7 @@ class Report:
 
 def run_suites(report, folder, temp, quick):
     try:
-        mono = check_archives(folder)
+        mono, web = check_archives(folder)
     except (OSError, ValueError, BadZipFile, StopIteration, KeyError) as error:
         report.note('客户端安装包完整性', '失败', f'{type(error).__name__}。请检查安装包目录和 SHA256SUMS.txt。')
         return None
@@ -123,12 +129,13 @@ def run_suites(report, folder, temp, quick):
 
     mono_game = GAME_ROOT / 'EFToffline - 4.1debug'
     il2cpp_game = GAME_ROOT / 'EFToffline - 5.0debug'
-    env = dict(os.environ, CM_RELEASE_DIR=str(folder), CM_WEB_PACKAGE=str(mono), CM_PACKAGE_LANGUAGE='zh-CN')
+    env = dict(os.environ, CM_RELEASE_DIR=str(folder), CM_WEB_PACKAGE=str(web), CM_PACKAGE_LANGUAGE='zh-CN')
     report.run('网页草稿、停止入口和安装包回归', [sys.executable, '-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_*.py'], env=env)
 
     with ZipFile(mono) as archive:
         binary = temp / 'ConfigurationManager.zh-cn.dll'
         binary.write_bytes(archive.read(CLIENT_DLL))
+    with ZipFile(web) as archive:
         for entry in archive.namelist():
             if entry.startswith('网页汉化工作台/'):
                 archive.extract(entry, temp)

@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $taskManifest = Get-Content -LiteralPath $ManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
 if ([string]::IsNullOrWhiteSpace($GameRoot)) {
-    $GameRoot = if ($taskManifest.packageLayoutVersion -in 2, 3, 4, 5, 6, 7) { [IO.Path]::GetDirectoryName($PSScriptRoot) } else { $PSScriptRoot }
+    $GameRoot = if ($taskManifest.packageLayoutVersion -in 2, 3, 4, 5, 6, 7, 8) { [IO.Path]::GetDirectoryName($PSScriptRoot) } else { $PSScriptRoot }
 }
 $taskRoot = [IO.Path]::GetFullPath($GameRoot)
 $taskExpected = $taskManifest.newtonsoft

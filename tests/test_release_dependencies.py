@@ -62,7 +62,8 @@ class ReleaseDependencies(unittest.TestCase):
                     self.assertIn(self.paths['script'], readme)
                     self.assertEqual({name for name in names if name.endswith('.md')},
                                      {self.paths['agent'], self.paths['license']})
-                    self.assertEqual({name for name in names if name.endswith('.html')}, {web_root + 'wwwroot/index.html'})
+                    expected_html = {web_root + 'wwwroot/index.html'} if 'webWorkbench' in manifest else set()
+                    self.assertEqual({name for name in names if name.endswith('.html')}, expected_html)
                     self.assertIn('BepInEx/plugins/zh-cn/glossary/eft.zh-CN.example.tsv', names)
                     agent = archive.read(self.paths['agent']).decode('utf-8-sig')
                     sample = json.loads(re.search(r'```jsonc\s+({.*?})\s*```', agent, re.S).group(1))
@@ -83,12 +84,16 @@ class ReleaseDependencies(unittest.TestCase):
                 script = re.search(r'<script src="([^"]+)"', editor).group(1)
                 self.assertIn(posixpath.join(posixpath.dirname(paths['editor']), script), names)
                 self.assertIn('lang="' + self.language.split('-')[0] if self.language == 'en' else 'lang="zh-CN"', editor)
-    def test_web_workbench_has_one_launchable_copy_with_glossary(self):
+    def test_historical_bundled_archives_remain_readable(self):
         for path in (self.mono, self.il2cpp):
             with ZipFile(path) as archive:
                 manifest = json.loads(archive.read(self.paths['manifest']))
                 version = manifest['packageLayoutVersion']
-                if version not in (4, 5, 6, release.CONTENT.LAYOUT_VERSION) or 'webWorkbench' not in manifest:
+                if version == release.CONTENT.LAYOUT_VERSION:
+                    self.assertTrue(manifest['webWorkbenchSeparate'])
+                    self.assertFalse(any(name.endswith(('.exe', '.html')) for name in archive.namelist()))
+                    continue
+                if version not in (4, 5, 6, 7) or 'webWorkbench' not in manifest:
                     self.skipTest('Historical archive layout')
                 self.assertEqual(set(manifest['webWorkbench']), release.workbench_paths(self.language, version))
                 web_root, web_files = release.CONTENT.web_payload(version)
@@ -100,15 +105,26 @@ class ReleaseDependencies(unittest.TestCase):
                 css = archive.read(web_root + 'wwwroot/workbench.css').decode('utf-8-sig')
                 self.assertIn('background:#121820', css)
                 self.assertNotIn('background: #171717', css)
-        missing = self.mutate(self.mono, lambda data: data.pop(web_root + 'wwwroot/workbench.js'))
-        with self.assertRaises(ValueError): release.inspect_client_package(missing)
+        if version != release.CONTENT.LAYOUT_VERSION:
+            missing = self.mutate(self.mono, lambda data: data.pop(web_root + 'wwwroot/workbench.js'))
+            with self.assertRaises(ValueError): release.inspect_client_package(missing)
     def test_current_release_uses_one_shared_chinese_web_build(self):
         mono, il2cpp = map(release.inspect_client_package, (self.mono, self.il2cpp))
         if mono['packageLayoutVersion'] != release.CONTENT.LAYOUT_VERSION:
             self.skipTest('Historical archive layout')
         self.assertEqual(mono['packageLanguage'], 'zh-CN')
         self.assertEqual(il2cpp['packageLanguage'], 'zh-CN')
-        self.assertEqual(mono['webWorkbench'], il2cpp['webWorkbench'])
+        self.assertEqual(mono.get('webWorkbench'), il2cpp.get('webWorkbench'))
+        self.assertEqual(mono.get('webWorkbenchSeparate'), il2cpp.get('webWorkbenchSeparate'))
+        if mono.get('webWorkbenchSeparate'):
+            with ZipFile(next(self.output.glob('网页汉化工作台-*-Windows.zip'))) as web:
+                root, names = release.CONTENT.web_payload()
+                self.assertTrue({root + name for name in names}.issubset(web.namelist()))
+                self.assertEqual([file for file in web.namelist() if file.endswith('.exe')],
+                                 ['网页汉化工作台.exe'])
+                self.assertIn('连接 SPT 服务端', web.read(root + 'wwwroot/index.html').decode('utf-8'))
+                self.assertIn('AI 翻译术语表', web.read(root + 'wwwroot/index.html').decode('utf-8'))
+                self.assertNotIn(release.PLUGIN, web.namelist())
         self.assertFalse(list(self.output.glob('*-International.zip')))
     def test_manifest_layout_mismatch_is_rejected(self):
         def change(data):

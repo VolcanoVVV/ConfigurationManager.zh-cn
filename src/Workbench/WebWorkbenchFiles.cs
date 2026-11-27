@@ -10,11 +10,17 @@ namespace ConfigurationManagerZhCn
     {
         internal const int MaxSnapshotBytes = 96 * 1024 * 1024;
         internal const int MaxDraftBytes = 2 * 1024 * 1024;
+        internal const int F12DraftVersion = 2;
         internal readonly string DirectoryPath;
 
-        internal WebWorkbenchFiles(string pluginPath)
+        internal WebWorkbenchFiles(string pluginPath, string serverId = null)
         {
             DirectoryPath = Path.Combine(Path.GetFullPath(pluginPath), "zh-cn", "web-workbench");
+            if (serverId != null)
+            {
+                if (!Guid.TryParseExact(serverId, "N", out _)) throw new ArgumentException("服务端标识无效。", nameof(serverId));
+                DirectoryPath = Path.Combine(DirectoryPath, "direct", serverId);
+            }
         }
 
         internal static string Name(string domain, string kind)

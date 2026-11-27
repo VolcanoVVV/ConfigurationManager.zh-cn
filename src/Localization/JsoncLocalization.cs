@@ -324,11 +324,20 @@ namespace ConfigurationManagerZhCn
         {
             lock (SaveSync)
             {
+                CheckWebLayer(pluginGuid, layer, items, expected);
+                SaveLayer(pluginGuid, layer, items, translated);
+            }
+        }
+
+        internal static void CheckWebLayer(string pluginGuid, TranslationLayer layer, IList<TranslationWorkItem> items,
+            IDictionary<string, string> expected)
+        {
+            lock (SaveSync)
+            {
                 lock (Sync) Documents.Remove(pluginGuid);
                 foreach (var item in items)
                     if (GetStoredValue(item, layer) != expected[item.Id])
-                        throw new InvalidOperationException("此译文层已有其他修改，整批未应用。请重新导出并核对。");
-                SaveLayer(pluginGuid, layer, items, translated);
+                        throw new InvalidOperationException("此译文层已有其他修改，请重新导出并核对。");
             }
         }
 

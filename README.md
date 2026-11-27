@@ -5,7 +5,7 @@
 >
 > 首次正式启动 API 翻译前，请先在供应商后台检查计费与限额，用少量条目试译。F12 和网页都有费用确认与 **紧急停止 API**。停止可取消本地等待并阻止后续请求，已发送的请求仍可能计费。仅在可信服务器上使用服务端 API 翻译，提交任务时密钥会交给当前服务器。
 
-为 BepInEx ConfigurationManager 的 **F12 模组设置**增加简体中文、精翻、API 与机翻。兼容的 Mono 环境还可接入 BetterBepInEx。内置的网页汉化工作台可编辑草稿、管理 AI 术语表，以及从静态 CFG 制作词典。
+为 BepInEx ConfigurationManager 的 **F12 模组设置**增加简体中文、精翻、API 与机翻。兼容的 Mono 环境还可接入 BetterBepInEx。独立分发的网页汉化工作台可编辑草稿、连接 SimpleTranslatorCS 管理服务端文本、管理 AI 术语表，以及从静态 CFG 制作词典。
 
 ## 下载与快速上手
 
@@ -16,7 +16,8 @@
 
 1. 先安装对应运行时的 ConfigurationManager。关闭游戏，备份已有译文、术语表和配置。
 2. 从 [GitHub Releases](https://github.com/VolcanoVVV/ConfigurationManager.zh-cn/releases) 下载对应 ZIP，完整解压到游戏根目录。
-3. 进游戏按 F12，打开「汉化工作台」。原版入口在顶部，兼容的 BetterBepInEx 入口在左侧。可从「精翻」开始校对，从「打开网页」进入网页工作台。网页需要 .NET 8 ASP.NET Core Runtime。
+3. 进游戏按 F12，打开「汉化工作台」。原版入口在顶部，兼容的 BetterBepInEx 入口在左侧。可从「精翻」开始校对。
+4. 使用网页时另下载「网页汉化工作台」，安装 .NET 8 ASP.NET Core Runtime。将整个网页包解压到游戏根目录后可从 F12 打开。仅管理服务端时，解压到任意目录，双击根目录的「网页汉化工作台.exe」即可连接 SimpleTranslatorCS。
 
 只有 F12 插件设置需要汉化时，安装客户端即可。物品、任务等游戏文本由与服务器版本匹配的 SimpleTranslatorCS 提供。检测到 Fika 时，服务端工作台按服务器管理员密钥授权。
 

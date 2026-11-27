@@ -19,4 +19,13 @@
     <Compile Include="../../Shared/GlossaryDocument.cs;../../Shared/TranslationGlossary.cs;../../Shared/AiModelCatalog.cs;../../Shared/TranslationProviderPresets.cs;../../Shared/TranslationRequestPolicy.cs;../../Shared/BoundedHttpContent.cs;../../Shared/PaidApiBudget.cs" />
     <Content Update="wwwroot/**/*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <Target Name="CreateStandaloneLauncher" AfterTargets="Publish" DependsOnTargets="_GetAppHostPaths"
+          Condition="'$(PublishStandaloneLauncher)' == 'true'">
+    <MakeDir Directories="$(PublishDir)launcher" />
+    <CreateAppHost AppHostSourcePath="$(AppHostSourcePath)"
+                   AppHostDestinationPath="$(PublishDir)launcher/网页汉化工作台.exe"
+                   AppBinaryName="网页汉化工作台\网页汉化工作台.dll"
+                   IntermediateAssembly="@(IntermediateAssembly->'%(FullPath)')"
+                   WindowsGraphicalUserInterface="true" />
+  </Target>
 </Project>

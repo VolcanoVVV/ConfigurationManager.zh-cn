@@ -8,9 +8,11 @@ internal sealed class BrowserTabs
     private const long TabTimeout = 90_000;
 
     private readonly object sync = new();
-    private readonly Dictionary<Guid, (bool Open, long Expires)> tabs = new();
+    private readonly Dictionary<Guid, (bool Open, long Expires, bool TrackedBySocket)> tabs = new();
+    private readonly Dictionary<Guid, long> leases = new();
     private long awaitingTabUntil = Environment.TickCount64 + StartupGrace;
     private long closeGraceUntil;
+    private long nextLease;
     private bool stopping;
 
     internal bool ExpectTab()
@@ -29,12 +31,41 @@ internal sealed class BrowserTabs
         {
             if (stopping) return false;
             // Ignore delayed renewals from a document that already sent pagehide.
-            if (tabs.TryGetValue(id, out var previous) && !previous.Open) return true;
+            if (tabs.TryGetValue(id, out var previous) && (!previous.Open || (open && previous.TrackedBySocket))) return true;
             var now = Environment.TickCount64;
-            tabs[id] = (open, now + TabTimeout);
+            tabs[id] = (open, now + TabTimeout, previous.TrackedBySocket);
             if (open) awaitingTabUntil = 0;
-            else if (!HasOpenTab(now)) closeGraceUntil = now + CloseGrace;
+            else
+            {
+                leases.Remove(id);
+                if (!HasOpenTab(now)) closeGraceUntil = now + CloseGrace;
+            }
             return true;
+        }
+    }
+
+    internal bool Attach(Guid id, out long lease)
+    {
+        lock (sync)
+        {
+            lease = 0;
+            if (stopping || (tabs.TryGetValue(id, out var existing) && !existing.Open)) return false;
+            lease = ++nextLease;
+            leases[id] = lease;
+            tabs[id] = (true, Environment.TickCount64 + TabTimeout, true);
+            awaitingTabUntil = 0;
+            return true;
+        }
+    }
+
+    internal void Detach(Guid id, long lease)
+    {
+        lock (sync)
+        {
+            if (!leases.TryGetValue(id, out var current) || current != lease) return;
+            leases.Remove(id);
+            // Give a still-open document a short window to reconnect after a transport error.
+            tabs[id] = (true, Environment.TickCount64 + CloseGrace, true);
         }
     }
 
@@ -58,7 +89,7 @@ internal sealed class BrowserTabs
         lock (sync)
         {
             var now = Environment.TickCount64;
-            foreach (var pair in tabs.Where(pair => pair.Value.Expires <= now).ToArray())
+            foreach (var pair in tabs.Where(pair => pair.Value.Expires <= now && !leases.ContainsKey(pair.Key)).ToArray())
                 tabs.Remove(pair.Key);
             if (now < awaitingTabUntil || now < closeGraceUntil || HasOpenTab(now)) return false;
             stopping = true;
@@ -66,5 +97,5 @@ internal sealed class BrowserTabs
         }
     }
 
-    private bool HasOpenTab(long now) => tabs.Values.Any(tab => tab.Open && tab.Expires > now);
+    private bool HasOpenTab(long now) => leases.Count > 0 || tabs.Values.Any(tab => tab.Open && tab.Expires > now);
 }
