@@ -69,7 +69,7 @@
 | 保存译文草稿 | `POST /api/{domain}/stage`。使用快照条目标识和指纹；回游戏确认，冲突时重取快照。 |
 | 离线配置 | `POST /api/cfg/preview` 解析并返回条目标识，`POST /api/cfg/export` 验证译文并返回 JSONC。`POST /api/cfg/translate` 会调用供应商。 |
 | 词表 | `GET /api/glossary` 与 `POST /api/glossary`。保存前比对文档版本并校验 UTF-8 TSV。 |
-| 工作台任务 | `POST /api/{domain}/translate` 可发出付费请求，`GET` 与 `POST /api/ai-stop` 读取或改变暂停状态。开始前确认用户授权、消费上限和目标范围。 |
+| 工作台任务 | `POST /api/{domain}/translate` 可发出付费请求，要求当前模块的 `consent` 凭证。用户在界面阅读声明并在 5 秒后同意。`GET` 与 `POST /api/ai-stop` 读取或改变暂停状态。开始前确认消费上限和目标范围。 |
 | 客户端与服务器交接 | `src/Workbench/WebWorkbenchBridge.cs` 管理快照 `*.snapshot.json`、草稿 `*.draft.json` 和回执 `*.receipt.json`。`src/Integration/ServerWorkbenchClient.cs` 定义 SimpleTranslatorCS 的授权、提交、审核和任务接口。正式译文经服务端权限校验后发布。 |
 
 ## 移植、升级和回归

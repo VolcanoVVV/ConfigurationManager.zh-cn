@@ -107,8 +107,9 @@ namespace ConfigurationManagerZhCn
         private static bool _showAiKey;
         private static CancellationTokenSource _cancellation;
         private static Task _job;
-        private static Action _paidStart;
-        private static bool _paidNoticeForLayout, _skipPaidNotice, _paidJob;
+        private static int? _pendingApiTab;
+        private static bool _apiTabAccepted, _paidNoticeForLayout, _paidJob;
+        private static int _apiServerGeneration;
         private static volatile bool _serverStopRequested;
         private static int _serverCancelSending;
         private static float _paidNoticeUntil;
@@ -262,7 +263,7 @@ namespace ConfigurationManagerZhCn
             _manager = null;
             _job = null;
             _serverJobActive = false;
-            _paidStart = null;
+            ResetApiTab();
             _paidNoticeForLayout = _paidJob = _serverStopRequested = false;
         }
 
@@ -425,7 +426,7 @@ namespace ConfigurationManagerZhCn
 
         private static void CloseDrawer()
         {
-            _paidStart = null;
+            ResetApiTab();
             _expanded = false;
             _captureActive = false;
             _pendingCapture = null;
@@ -501,7 +502,7 @@ namespace ConfigurationManagerZhCn
 
         internal static void ResetMenuState()
         {
-            _paidStart = null;
+            ResetApiTab();
             _paidNoticeForLayout = false;
 #if !IL2CPP
             _betterMenuEscape = false;
@@ -538,6 +539,8 @@ namespace ConfigurationManagerZhCn
                 }
 #endif
                 _statusDetailsForLayout = _showStatusDetails;
+                var previousDomain = _domain;
+                var previousAdmin = _serverAdminForLayout;
                 if (_pendingDomain.HasValue)
                 {
                     if (_domain != _pendingDomain.Value)
@@ -553,7 +556,6 @@ namespace ConfigurationManagerZhCn
                 if (_expanded && !_drawerVisible) _openedAt = Time.realtimeSinceStartup;
                 _drawerVisible = _expanded;
                 _jobRunningForLayout = IsJobRunning();
-                _paidNoticeForLayout = _paidStart != null;
                 _recoverableJobForLayout = _drawerVisible && _domain == WorkbenchDomain.ServerGameText ? ServerWorkbenchClient.RecoverableJobId() : null;
                 _serverCapabilitiesForLayout = ServerTranslationFeature.Capabilities;
                 _serverAvailableForLayout = _serverCapabilitiesForLayout != null;
@@ -567,7 +569,28 @@ namespace ConfigurationManagerZhCn
                     _domain = WorkbenchDomain.F12Settings;
                     _requestedTab = 0;
                 }
+                var server = _domain == WorkbenchDomain.ServerGameText;
+                var blocked = server && _serverLockedForLayout;
+                var serverGeneration = ServerTranslationFeature.Generation;
+                var contextChanged = previousDomain != _domain || (server &&
+                    (previousAdmin != _serverAdminForLayout || _apiServerGeneration != serverGeneration));
+                _apiServerGeneration = serverGeneration;
+                var apiTab = server && !_serverAdminForLayout ? 0 : 1;
+                var defaultTab = apiTab == 0 ? ServerPlayerTabs.Length - 1 : 0;
+                if (contextChanged || blocked || !_drawerVisible)
+                {
+                    ResetApiTab();
+                    if (contextChanged || _requestedTab == apiTab) _requestedTab = defaultTab;
+                }
                 _requestedTab = ClampWorkbenchTab(_requestedTab, _domain, _serverAdminForLayout);
+                if (_requestedTab == apiTab && !_apiTabAccepted)
+                {
+                    _requestedTab = _selectedTab == apiTab ? defaultTab : ClampWorkbenchTab(_selectedTab, _domain, _serverAdminForLayout);
+                    _pendingApiTab = apiTab;
+                    _paidNoticeUntil = Time.realtimeSinceStartup + 5f;
+                }
+                if (_requestedTab != apiTab) _apiTabAccepted = false;
+                _paidNoticeForLayout = _pendingApiTab.HasValue;
                 if (_selectedTab != _requestedTab)
                 {
                     _selectedTab = _requestedTab;
@@ -650,7 +673,7 @@ namespace ConfigurationManagerZhCn
                 if (_paidNoticeForLayout)
                 {
                     var width = Mathf.Min(_drawerRect.width, 460);
-                    const float height = 248f;
+                    const float height = 310f;
                     var rect = new Rect((ViewportWidth - width) * 0.5f, (ViewportHeight - height) * 0.5f, width, height);
                     GUILayout.Window(PaidNoticeWindowId, rect, (GUI.WindowFunction)DrawPaidNotice, GUIContent.none, GUI.skin.window);
                     GUI.BringWindowToFront(PaidNoticeWindowId);
@@ -679,7 +702,7 @@ namespace ConfigurationManagerZhCn
             {
                 _expanded = false;
                 _captureActive = false;
-                _paidStart = null;
+                ResetApiTab();
                 ResetPluginPicker();
                 if (_log != null) _log.LogError("Translation drawer failed: " + ex);
             }
@@ -696,7 +719,7 @@ namespace ConfigurationManagerZhCn
 
         private static void CloseDrawerOrDialog()
         {
-            if (_paidStart != null) { _paidStart = null; RequestGuiRefresh(); }
+            if (_pendingApiTab.HasValue) { ResetApiTab(); RequestGuiRefresh(); }
             else if (_pickerVisible) QueuePluginPicker(CancelPluginPicker);
             else if (GlossaryEditorWindow.IsVisible) GlossaryEditorWindow.RequestClose();
             else CloseDrawer();
@@ -1656,7 +1679,7 @@ namespace ConfigurationManagerZhCn
             }));
         }
 
-        private static void StartServerJob(ServerWorkbenchSnapshot snapshot, string mode, bool test, bool confirmed = false)
+        private static void StartServerJob(ServerWorkbenchSnapshot snapshot, string mode, bool test)
         {
             if (IsJobRunning()) return;
             if (ServerWorkbenchClient.RecoverableJobId() != null)
@@ -1664,16 +1687,7 @@ namespace ConfigurationManagerZhCn
                 SetStatus("请先查询上次服务端任务，确认任务结束后再开始新的翻译。");
                 return;
             }
-            if (mode == "ai" && !confirmed)
-            {
-                var generation = ServerTranslationFeature.Generation;
-                RequestPaidStart(() =>
-                {
-                    if (ServerTranslationFeature.IsCurrentConnection(generation)) StartServerJob(snapshot, mode, test, true);
-                    else SetStatus("服务端连接已变化，请刷新目录后重新开始。");
-                });
-                return;
-            }
+            if (mode == "ai" && (!CanStartApi() || !ServerTranslationFeature.IsCurrentConnection(_apiServerGeneration))) return;
             BeginJob(test ? "服务端 API 校验" : "服务端翻译任务", test ? 1 : snapshot.Entries.Count, paid: mode == "ai");
             _serverJobActive = true;
             _job = RunServerJobAsync(snapshot, mode, test);
@@ -2630,10 +2644,10 @@ namespace ConfigurationManagerZhCn
             foreach (var pair in source) target[pair.Key] = pair.Value;
         }
 
-        private static void StartBatchJob(bool ai, bool titleOnly = false, bool confirmed = false)
+        private static void StartBatchJob(bool ai, bool titleOnly = false)
         {
             if (IsJobRunning()) return;
-            if (ai && !confirmed) { RequestPaidStart(() => StartBatchJob(ai, titleOnly, true)); return; }
+            if (ai && !CanStartApi()) return;
             var plan = !titleOnly ? CreateBatchPlan(ai) : TranslationBatchPlan.Create(_snapshots,
                 BatchSelection, new TranslationScope { PluginNames = true },
                 true, CurrentAiProfile(), false, true);
@@ -2891,32 +2905,32 @@ namespace ConfigurationManagerZhCn
             return text.Length <= 8000 ? text : text.Substring(0, 8000) + "\n…界面详情已截断，完整记录请查看 API翻译日志。";
         }
 
-        private static void RequestPaidStart(Action start)
+        private static void ResetApiTab()
         {
-            if (_plugin.AiStopped.Value) { SetStatus("API 翻译已暂停，请先点击恢复 API。"); return; }
-            if (_plugin.AiNoticeSeen.Value && _plugin.AiNoticeSkip.Value) { start(); return; }
-            _paidStart = start;
-            _skipPaidNotice = false;
-            _paidNoticeUntil = Time.realtimeSinceStartup + (_plugin.AiNoticeSeen.Value ? 0f : 5f);
-            RequestGuiRefresh();
+            _pendingApiTab = null;
+            _apiTabAccepted = false;
+        }
+
+        private static bool CanStartApi()
+        {
+            if (!_apiTabAccepted) { SetStatus("请先阅读并同意 API 使用声明。"); return false; }
+            if (_plugin.AiStopped.Value) { SetStatus("API 翻译已暂停，请先点击恢复 API。"); return false; }
+            return true;
         }
 
         private static void DrawPaidNotice(int id)
         {
-            GUILayout.Label("确认自费使用 API", TranslationPanelTheme.Title);
-            GUILayout.Label("本次翻译使用你提供的 API 额度。供应商可能对超时、取消或无效译文计费。无法保证每次请求都得到可用译文，也无法保证 token 用量符合预估。", TranslationPanelTheme.Notice);
-            _skipPaidNotice = TranslationPanelTheme.Toggle(_skipPaidNotice, "以后不再弹窗");
+            GUILayout.Label("API 自费与免责声明", TranslationPanelTheme.Title);
+            GUILayout.Label("API 使用你提供的第三方账户与密钥，费用由你承担，以服务商账单为准。预计 Token 用量仅供参考。已送达的请求即使取消、超时或未获得可用译文，也可能计费。请仅提交你有权发送的内容。依法应由你或服务商承担的费用、损失及法律责任，作者不承担。依法不得免除的责任仍由责任方承担。", TranslationPanelTheme.Notice);
             var seconds = Mathf.Max(0, Mathf.CeilToInt(_paidNoticeUntil - Time.realtimeSinceStartup));
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("取消", TranslationPanelTheme.SecondaryAction)) { _paidStart = null; RequestGuiRefresh(); }
-            GUI.enabled = seconds == 0 && _paidStart != null && !_plugin.AiStopped.Value;
-            if (GUILayout.Button(seconds > 0 ? "我已悉知（" + seconds + " 秒）" : "我已悉知", TranslationPanelTheme.Primary))
+            if (GUILayout.Button("取消", TranslationPanelTheme.SecondaryAction)) { ResetApiTab(); RequestGuiRefresh(); }
+            GUI.enabled = seconds == 0 && _pendingApiTab.HasValue;
+            if (GUILayout.Button(seconds > 0 ? "同意（" + seconds + " 秒）" : "同意并进入", TranslationPanelTheme.Primary))
             {
-                var start = _paidStart;
-                _paidStart = null;
-                _plugin.AiNoticeSeen.Value = true;
-                _plugin.AiNoticeSkip.Value = _skipPaidNotice;
-                start?.Invoke();
+                _requestedTab = _pendingApiTab.Value;
+                _pendingApiTab = null;
+                _apiTabAccepted = true;
                 RequestGuiRefresh();
             }
             GUI.enabled = true;
@@ -2933,14 +2947,14 @@ namespace ConfigurationManagerZhCn
 
         private static void TogglePaidStop()
         {
-            if (_plugin.AiStopped.Value && !(_paidJob && IsJobRunning()) && _paidStart == null)
+            if (_plugin.AiStopped.Value && !(_paidJob && IsJobRunning()) && !_pendingApiTab.HasValue)
             {
                 _plugin.AiStopped.Value = false;
                 SetStatus("已恢复 API 翻译，可以发起新任务。");
                 return;
             }
             _plugin.AiStopped.Value = true;
-            _paidStart = null;
+            if (_pendingApiTab.HasValue) ResetApiTab();
             if (_paidJob && IsJobRunning())
             {
                 if (_serverJobActive) _ = RequestServerCancelAsync();

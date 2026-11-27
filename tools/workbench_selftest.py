@@ -168,7 +168,7 @@ def run_suites(report, folder, temp, quick):
     browser = find_browser()
     node = shutil.which('node')
     if browser and node:
-        report.run('浏览器实测停止按钮、5 秒倒计时和免提示', [node, '--experimental-websocket', 'tests/check_api_notice.mjs',
+        report.run('浏览器实测 API 入口 5 秒确认、取消和停止', [node, '--experimental-websocket', 'tests/check_api_notice.mjs',
                    temp / '网页汉化工作台/网页汉化工作台.dll', browser, temp])
     else:
         report.note('网页按钮与确认弹窗的浏览器实测', '未测', '需要本机有 Chrome 或 Edge，以及支持 WebSocket 的 Node.js。')

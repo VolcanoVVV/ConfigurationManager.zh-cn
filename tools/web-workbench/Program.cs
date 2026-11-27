@@ -98,6 +98,7 @@ var app = builder.Build();
 app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(15) });
 var browserTabs = new BrowserTabs();
 var work = new SemaphoreSlim(1);
+var apiConsent = new WebApiConsent();
 var aiStopLock = new object();
 var aiStop = new CancellationTokenSource();
 var cache = new Dictionary<string, (DateTime Stamp, long Length, JObject Snapshot)>();
@@ -223,9 +224,15 @@ app.MapGet("/workbench.css", () => Results.File(Path.Combine(staticRoot, "workbe
 app.MapGet("/glossary-schema.js", () => Results.Stream(
     typeof(InputError).Assembly.GetManifestResourceStream("GlossaryEditorScript"), "text/javascript; charset=utf-8"));
 app.MapGet("/api/providers", () => Results.Json(new { ai = aiPresets.Select(Preset), machine = machinePresets.Select(Preset) }));
+app.MapPost("/api/api-consent", async (HttpContext context) =>
+{
+    var result = apiConsent.Change(await Body(context));
+    await result.ExecuteAsync(context);
+});
 app.MapPost("/api/models", async (HttpContext context) =>
 {
     var body = await Body(context);
+    if (!apiConsent.Allows(body)) return ApiConsentRequired();
     var provider = aiPresets.FirstOrDefault(item => item.Id == (string)body["provider"])
         ?? throw new InputError("请选择受支持的 AI 供应商。");
     var key = Text(body, "key", 512);
@@ -273,6 +280,7 @@ app.MapPost("/api/ai-stop", async (HttpContext context) =>
 app.MapPost("/api/cfg/translate", async (HttpContext context) =>
 {
     var body = await Body(context);
+    if (!apiConsent.Allows(body, "cfg")) return ApiConsentRequired();
     var plan = ReadCfg(body);
     if (body["ids"] is not JArray ids || ids.Count is < 1 or > 120 || ids.Any(id => id.Type != JTokenType.String))
         throw new InputError("每次可翻译 1 至 120 个字段。");
@@ -588,6 +596,7 @@ app.MapPost("/api/{domain}/stage", async (HttpContext context, string domain) =>
 app.MapPost("/api/{domain}/translate", async (HttpContext context, string domain) =>
 {
     var body = await Body(context);
+    if (!apiConsent.Allows(body, "workbench")) return ApiConsentRequired();
     var snapshot = RequireRevision(domain, body);
     var mode = Text(body, "mode", 10);
     if (mode != "ai" && mode != "machine") throw new InputError("未知翻译方式。");
@@ -655,6 +664,8 @@ static void RequireDraftVersion(string domain, JObject snapshot, bool multipleGr
     if (domain == "f12" && multipleGroups && (int?)snapshot["draftVersion"] != WebWorkbenchFiles.F12DraftVersion)
         throw new InputError("当前 F12 快照只支持单插件草稿。请选择一个插件，或升级 F12 汉化后在游戏里刷新快照。");
 }
+
+static IResult ApiConsentRequired() => Results.Json(new { error = "请先进入 API 翻译模块并同意使用声明。" }, statusCode: 403);
 
 int InstalledPort()
 {

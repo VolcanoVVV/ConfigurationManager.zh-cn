@@ -25,7 +25,7 @@
 
 - 安装升级、翻译与校对、术语、网页、服务器联动、排错与二次开发。[玩家与开发者手册](README.zh-CN.md)
 - 批量汉化、词典格式、本机接口、移植和升级验证。[AI 与 Agent 汉化指南](docs/AI_AGENT_GUIDE.zh-CN.md)
-- 从 2.14.0 升级、安装包选择与验证范围。[2.14.1 更新说明](docs/RELEASE_NOTES_2.14.1.zh-CN.md)
+- API 模块的自费确认、5 秒倒计时和安装包选择。[2.14.2 更新说明](docs/RELEASE_NOTES_2.14.2.zh-CN.md)
 - 本地构建、依赖验证与打包。[发布包约定](docs/RELEASE_LAYOUT.zh-CN.md)
 
 ## 项目结构

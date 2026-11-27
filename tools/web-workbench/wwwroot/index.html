@@ -42,13 +42,12 @@
     </div>
   </dialog>
   <dialog id="apiNotice" aria-labelledby="apiNoticeTitle">
-    <h2 id="apiNoticeTitle">确认自费使用 API</h2>
+    <h2 id="apiNoticeTitle">API 自费与免责声明</h2>
     <p id="apiNoticeContext"></p>
-    <p>供应商可能对超时、取消或无效译文计费。无法保证每次请求都得到可用译文，也无法保证 token 用量符合预估。</p>
-    <label class="checkbox"><input id="apiNoticeSkip" type="checkbox">以后不再弹窗</label>
+    <p>API 使用你提供的第三方账户与密钥，费用由你承担，以服务商账单为准。预计 Token 用量仅供参考。已送达的请求即使取消、超时或未获得可用译文，也可能计费。请仅提交你有权发送的内容。依法应由你或服务商承担的费用、损失及法律责任，作者不承担。依法不得免除的责任仍由责任方承担。</p>
     <div class="actions">
       <button id="apiNoticeCancel" type="button">取消</button>
-      <button id="apiNoticeAccept" class="primary" type="button">我已悉知</button>
+      <button id="apiNoticeAccept" class="primary" type="button" disabled>同意（5 秒）</button>
       <button id="apiNoticeStop" class="api-stop" type="button">紧急停止 API</button>
     </div>
   </dialog>
@@ -78,6 +77,8 @@
         </section>
         <aside class="controls" aria-label="离线 CFG 翻译与导出">
           <h2>翻译与导出</h2>
+          <button id="cfgEnableApi" type="button">启用 API 翻译</button>
+          <div id="cfgApiControls" hidden>
           <label>供应商<select id="cfgProvider"></select></label>
           <label>API 密钥<input id="cfgKey" type="password" maxlength="512" autocomplete="off" spellcheck="false"></label>
           <div><label>模型</label><div class="model-control"><input id="cfgModel" list="cfgModelList" maxlength="150" aria-label="模型" placeholder="可自行输入"><button id="cfgModelRefresh" type="button">刷新</button></div>
@@ -85,6 +86,7 @@
           <label>本次最多字段数<input id="cfgCount" type="number" min="1" max="120" value="30"></label>
           <p>调用 API 可能计费。仅发送翻译字段及其上下文。</p>
           <div class="actions api-actions"><button id="cfgApiStop" class="api-stop" type="button">紧急停止 API</button><button id="cfgTranslate" disabled>翻译范围内未译</button><button id="cfgCancel" disabled>取消等待</button></div>
+          </div>
           <p id="cfgStatus" role="status"></p>
           <button id="cfgDownload" class="primary" disabled>下载 JSONC</button>
           <p>核对 GUID 和译文后再安装到游戏。同名译文请先备份。</p>

@@ -33,7 +33,7 @@ namespace ConfigurationManagerZhCn
     {
         internal const string PluginGuid = "ConfigurationManager.zh-cn";
         // Release numbers are owner-selected; see docs/VERSION_POLICY.zh-CN.md.
-        internal const string PluginVersion = "2.14.1";
+        internal const string PluginVersion = "2.14.2";
         internal static ConfigEntry<bool> EnableServerLiveSync;
         internal static ConfigEntry<bool> QuietServerLiveSyncLogs;
 
@@ -65,8 +65,6 @@ namespace ConfigurationManagerZhCn
         internal ConfigEntry<int> AiMaxOutputTokens { get; private set; }
         internal ConfigEntry<bool> AiJsonOutput { get; private set; }
         internal ConfigEntry<int> AiMaxReportedTokens { get; private set; }
-        internal ConfigEntry<bool> AiNoticeSeen { get; private set; }
-        internal ConfigEntry<bool> AiNoticeSkip { get; private set; }
         internal ConfigEntry<bool> AiStopped { get; private set; }
         internal ConfigEntry<string> PendingServerJob { get; private set; }
         internal ConfigEntry<int> AiMaxRequests { get; private set; }
@@ -189,8 +187,6 @@ namespace ConfigurationManagerZhCn
             AiJsonOutput = Config.Bind("AI 精翻接口", "结构化JSON输出", true, "发送 response_format=json_object。不支持此参数的兼容服务可关闭。");
             AiMaxReportedTokens = Config.Bind("AI 精翻接口", "任务已报告token预算", TranslationFoundation.PaidApiBudget.DefaultTokens, new ConfigDescription("发送前预留 token。供应商缺报时保留预留值。0 使用默认额度。", new AcceptableValueRange<int>(0, 10000000)));
             AiMaxRequests = Config.Bind("AI 精翻接口", "任务请求上限", TranslationFoundation.PaidApiBudget.DefaultRequests, new ConfigDescription("含重试，0 使用默认上限。", new AcceptableValueRange<int>(0, 10000)));
-            AiNoticeSeen = Config.Bind("API 使用确认", "已确认费用提示", false);
-            AiNoticeSkip = Config.Bind("API 使用确认", "以后不再提示", false);
             AiStopped = Config.Bind("API 使用确认", "暂停发送API翻译请求", false);
             AiRequestDelayMs = Config.Bind("AI 精翻接口", "请求间隔毫秒", 250, new ConfigDescription("降低持续请求的限流概率。", new AcceptableValueRange<int>(0, 10000)));
             RequestTimeoutSeconds = Config.Bind("翻译", "请求超时秒数", 120, new ConfigDescription("机翻和 AI 请求的超时时间。", new AcceptableValueRange<int>(10, 600)));

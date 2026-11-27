@@ -88,8 +88,6 @@ try {
         attempts.push(JSON.parse(options[0].body));
         return Promise.resolve(new Response(null, { status: 204 }));
       }
-      if (path === '/api/models')
-        return Promise.resolve(new Response(JSON.stringify({ models: ['fixture-model'] }), { status: 200 }));
       return fetchFromHost.call(window, path, ...options);
     };
     try {
@@ -112,11 +110,7 @@ try {
       key.dispatchEvent(new Event('input'));
       const ready = !connect.disabled;
       await changeDirectConnection(true);
-      document.querySelector('#model').value = 'manual-model';
-      await document.querySelector('#modelRefresh').onclick();
-      const model = document.querySelector('#modelList').options[0]?.value === 'fixture-model'
-        && document.querySelector('#model').value === 'manual-model';
-      return local && autoConnected && protectedServer && ready && attempts[1]?.adminKey === 'fixture' && model;
+      return local && autoConnected && protectedServer && ready && attempts[1]?.adminKey === 'fixture';
     } finally {
       document.querySelector('#directClose').click();
       window.fetch = fetchFromHost;
@@ -141,8 +135,25 @@ try {
     };
   })()`);
   assert.deepEqual(layout, { buttonOrder: true, manualMode: true, proportionalWidth: true, taskBarAboveEditor: true, menu: '更多', modesInSidebar: true });
-  const queue = await evaluate(`(async () => {
+  assert(await evaluate(`(() => {
+    localStorage.setItem('volcano-paid-api-notice-v1', 'skip');
     document.querySelector('#apiMode').click();
+    const accept = document.querySelector('#apiNoticeAccept');
+    accept.click();
+    return accept.disabled && accept.textContent.includes('5') && document.querySelector('#apiNotice').open &&
+      document.querySelector('#providerControls').hidden && !inApiMode();
+  })()`));
+  await evaluate("document.querySelector('#apiNoticeCancel').click()");
+  await sleep(150);
+  assert.equal(await evaluate('inApiMode()'), false);
+  assert.equal(await evaluate('workbenchConsent'), null);
+  await evaluate("document.querySelector('#apiMode').click()");
+  await sleep(5250);
+  assert.equal(await evaluate("document.querySelector('#apiNoticeAccept').disabled"), false);
+  await evaluate("document.querySelector('#apiNoticeAccept').click()");
+  for (let i = 0; i < 40 && !await evaluate('inApiMode()'); ++i) await sleep(50);
+  assert.equal(await evaluate('inApiMode()'), true);
+  const queue = await evaluate(`(async () => {
     for (let i = 0; i < 50 && (state.rows.length !== 24 || !state.revision); i++)
       await new Promise(resolve => setTimeout(resolve, 20));
     async function waitForTotal(total) {
@@ -180,22 +191,25 @@ try {
     await document.querySelector('#apiDraftView').onclick();
     if (state.selected.size !== 71 || !showingDraft() || !document.querySelector('#pageSelection').hidden) return { phase: 'draft' };
     const fetchFromHost = window.fetch;
-    const realConfirm = confirmPaidApi;
     let sent;
-    confirmPaidApi = async () => true;
     window.fetch = (path, ...options) => {
+      if (path === '/api/models')
+        return Promise.resolve(new Response(JSON.stringify({ models: ['fixture-model'] }), { status: 200 }));
       if (path !== '/api/f12/translate') return fetchFromHost.call(window, path, ...options);
       sent = JSON.parse(options[0].body).edits;
       const values = sent.slice(0, 2).map(row => ({ id: row.id, group: row.group, text: '模拟译文' }));
       return Promise.resolve(new Response(JSON.stringify({ values, failed: 28 }), { status: 200 }));
     };
     try {
+      document.querySelector('#model').value = 'manual-model';
+      await document.querySelector('#modelRefresh').onclick();
+      if (document.querySelector('#modelList').options[0]?.value !== 'fixture-model' ||
+          document.querySelector('#model').value !== 'manual-model') return { phase: 'models' };
       await document.querySelector('#translate').onclick();
       const next = await prepareQueueBatch();
       return { sent: sent?.length, remaining: state.selected.size, edited: state.edits.size, draft: showingDraft(),
         next: next.length, rotatesFailures: !!sent && !next.some(row => row.id === sent[2].id) };
     } finally {
-      confirmPaidApi = realConfirm;
       window.fetch = fetchFromHost;
     }
   })()`);
@@ -211,26 +225,27 @@ try {
       });
     } finally { root.style.zoom = previous; }
   })()`));
-  assert(await evaluate(`(() => {
-    window.noticeResult = confirmPaidApi('测试');
-    const accept = document.querySelector('#apiNoticeAccept');
-    accept.click();
-    return accept.disabled && accept.textContent.includes('5') && document.querySelector('#apiNotice').open;
-  })()`));
-  await evaluate("document.querySelector('#apiNoticeCancel').click()");
-  assert.equal(await evaluate('window.noticeResult'), false);
-  await evaluate("window.noticeResult = confirmPaidApi('首次确认'); undefined");
-  await sleep(5100);
-  assert.equal(await evaluate("document.querySelector('#apiNoticeAccept').disabled"), false);
-  await evaluate("document.querySelector('#apiNoticeSkip').checked = true; document.querySelector('#apiNoticeAccept').click()");
-  assert.equal(await evaluate('window.noticeResult'), true);
-  assert.equal(await evaluate("confirmPaidApi('同一浏览器记住选择')"), true);
   await evaluate('setAiStop(true)');
-  assert.equal(await evaluate("confirmPaidApi('停止后不允许继续')"), false);
+  assert.equal(await evaluate("document.querySelector('#translate').disabled"), true);
   assert.equal(await evaluate("document.querySelector('#apiStop').textContent"), '恢复 API');
   assert.equal(await evaluate("document.querySelector('#cfgApiStop').textContent"), '恢复 API');
   await evaluate('setAiStop(false)');
   assert.equal(await evaluate("document.querySelector('#apiStop').textContent"), '紧急停止');
+  await evaluate("state.dirty = false; switchWorkMode('manual')");
+  await evaluate("document.querySelector('#apiMode').click()");
+  assert(await evaluate("document.querySelector('#apiNotice').open && document.querySelector('#apiNoticeAccept').disabled && workbenchConsent === null"));
+  await evaluate("document.querySelector('#apiNoticeCancel').click()");
+  await sleep(150);
+  await evaluate("document.querySelector('#cfgTab').click()");
+  assert(await evaluate("!document.querySelector('#cfgFile').disabled && document.querySelector('#cfgApiControls').hidden"));
+  await evaluate("document.querySelector('#cfgEnableApi').click()");
+  assert(await evaluate("document.querySelector('#apiNotice').open && document.querySelector('#cfgApiControls').hidden"));
+  await sleep(5250);
+  await evaluate("document.querySelector('#apiNoticeAccept').click()");
+  for (let i = 0; i < 40 && !await evaluate('Boolean(cfgConsent)'); ++i) await sleep(50);
+  assert(await evaluate("Boolean(cfgConsent) && !document.querySelector('#cfgApiControls').hidden"));
+  await evaluate("document.querySelector('#f12Tab').click()");
+  assert.equal(await evaluate('cfgConsent'), null);
   assert(await evaluate(`(() => {
     state.dirty = false;
     const fetchFromHost = window.fetch;
@@ -244,7 +259,7 @@ try {
   const closed = await fetch(`http://127.0.0.1:${debugPort}/json/close/${targets.find(target => target.type === 'page').id}`);
   assert(closed.ok, 'Chromium closed the last workbench tab');
   assert.equal(await Promise.race([appExit, sleep(5500).then(() => 'still running')]), 0);
-  console.log('PASS: Chromium sidebar controls at 200%, cross-page queue, API stop/resume, and last-tab service exit.');
+  console.log('PASS: Chromium mandatory API entry consent, CFG gating, cross-page queue, API stop/resume, 200% controls and last-tab exit.');
 } finally {
   connection?.close();
   chrome?.kill();

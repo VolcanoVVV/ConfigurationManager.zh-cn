@@ -22,37 +22,62 @@ let aiPaused = false;
 let aiStopPending = false;
 let aiStopUnconfirmed = false;
 const aiNotice = $('apiNotice');
-const noticeKey = 'volcano-paid-api-notice-v1';
+let noticePending = false;
+let workbenchConsent = null;
+let cfgConsent = null;
 
-function confirmPaidApi(description) {
-  if (aiPaused || aiStopPending || aiNotice.open) return Promise.resolve(false);
-  let preference = '';
-  try { preference = localStorage.getItem(noticeKey) || ''; } catch { }
-  if (preference === 'skip') return Promise.resolve(true);
+function releaseApiConsent(scope, consent) {
+  if (consent) api('api-consent', { action: 'leave', scope, consent }, undefined, true).catch(() => {});
+}
+
+function confirmPaidApi(scope, description) {
+  if (noticePending) return Promise.resolve(null);
+  noticePending = true;
   const accept = $('apiNoticeAccept');
-  const deadline = performance.now() + (preference === 'seen' ? 0 : 5000);
-  $('apiNoticeContext').textContent = description;
-  $('apiNoticeSkip').checked = false;
+  const context = $('apiNoticeContext');
+  let deadline = null;
+  let consent = null;
+  let accepted = false;
+  let closed = false;
+  let submitting = false;
+  context.textContent = description;
   const update = () => {
-    const remaining = Math.max(0, Math.ceil((deadline - performance.now()) / 1000));
-    accept.disabled = remaining > 0 || aiPaused;
-    accept.textContent = remaining > 0 ? `我已悉知（${remaining} 秒）` : '我已悉知';
+    const remaining = deadline === null ? 5 : Math.max(0, Math.ceil((deadline - performance.now()) / 1000));
+    accept.disabled = remaining > 0 || submitting;
+    accept.textContent = remaining > 0 ? `同意（${remaining} 秒）` : '同意并进入';
   };
   update();
   aiNotice.showModal();
   return new Promise(resolve => {
     const timer = setInterval(update, 100);
     aiNotice.addEventListener('close', () => {
+      closed = true;
+      noticePending = false;
       clearInterval(timer);
-      resolve(aiNotice.returnValue === 'accept' && !aiPaused);
+      if (!accepted) releaseApiConsent(scope, consent);
+      resolve(accepted ? consent : null);
     }, { once: true });
     $('apiNoticeCancel').onclick = () => aiNotice.close('cancel');
-    accept.onclick = () => {
-      if (performance.now() < deadline || aiPaused || aiStopPending) return;
-      try { localStorage.setItem(noticeKey, $('apiNoticeSkip').checked ? 'skip' : 'seen'); } catch { }
-      aiNotice.close('accept');
+    accept.onclick = async () => {
+      if (closed || !consent || performance.now() < deadline || submitting) return;
+      submitting = true;
+      update();
+      try {
+        await api('api-consent', { action: 'accept', scope, consent });
+        if (closed || !aiNotice.open) return;
+        accepted = true;
+        aiNotice.close('accept');
+      } catch (error) {
+        if (!closed) context.textContent = error.message;
+      } finally { submitting = false; if (!closed) update(); }
     };
-    aiNotice.returnValue = 'cancel';
+    api('api-consent', { action: 'open', scope }).then(result => {
+      if (typeof result.consent !== 'string') throw new Error('未收到本机工作台的 API 确认凭证。');
+      consent = result.consent;
+      if (closed || !aiNotice.open) { releaseApiConsent(scope, consent); return; }
+      deadline = performance.now() + 5000;
+      update();
+    }).catch(error => { if (!closed) context.textContent = error.message; });
   });
 }
 
@@ -195,7 +220,12 @@ function openBrowserLease() {
   }
 }
 
-window.addEventListener('pagehide', () => {
+window.addEventListener('pagehide', event => {
+  if (!event.persisted) {
+    releaseApiConsent('workbench', workbenchConsent);
+    releaseApiConsent('cfg', cfgConsent);
+    if (aiNotice.open) aiNotice.close('cancel');
+  }
   if (!browserTab) return;
   const id = browserTab;
   browserTab = null;
@@ -721,11 +751,13 @@ function switchView(view, domain = view === 'review' ? state.domain : view) {
   }
   const changedDomain = state.domain !== domain;
   if (changedDomain) {
+    releaseApiConsent('workbench', workbenchConsent);
+    workbenchConsent = null;
     resetEditing();
     sourceScope = null;
     fieldScope = null;
     collapsedPlugins.clear();
-    Object.assign(state, { domain, revision: '', previous: null });
+    Object.assign(state, { domain, workMode: 'manual', revision: '', previous: null });
     state.layer = currentLayer();
     $('receipt').textContent = '';
   }
@@ -740,8 +772,18 @@ function switchView(view, domain = view === 'review' ? state.domain : view) {
   say('');
   run(() => load({ restore: changedDomain }));
 }
-function switchWorkMode(mode) {
+async function switchWorkMode(mode) {
   if (state.workMode === mode || state.busy || state.saving || state.picking || !discardConfirmed()) return;
+  if (mode === 'api') {
+    const domain = state.domain;
+    const consent = await confirmPaidApi('workbench', '同意后可进入本工作区的 API 翻译模块。');
+    if (!consent) return;
+    if (domain !== state.domain || hostStopped) { releaseApiConsent('workbench', consent); return; }
+    workbenchConsent = consent;
+  } else {
+    releaseApiConsent('workbench', workbenchConsent);
+    workbenchConsent = null;
+  }
   const draftVisible = showingDraft();
   resetEditing({ keepSelection: true });
   state.workMode = mode;
@@ -778,6 +820,8 @@ function clearModelList(model) {
 function setupModelRefresh(model, provider, key) {
   $(key).addEventListener('input', () => clearModelList(model));
   $(model + 'Refresh').onclick = async () => {
+    const consent = model === 'cfgModel' ? cfgConsent : workbenchConsent;
+    if (!consent) return;
     const selected = $(provider).value;
     const credential = $(key).value;
     const status = $(model + 'Status');
@@ -785,7 +829,7 @@ function setupModelRefresh(model, provider, key) {
     button.disabled = true;
     status.textContent = '正在查询…';
     try {
-      const { models } = await api('models', { provider: selected, key: credential });
+      const { models } = await api('models', { provider: selected, key: credential, consent });
       if ($(provider).value !== selected || $(key).value !== credential) return;
       $(model + 'List').replaceChildren(...models.map(value => option(value, value)));
       status.textContent = '找到 ' + models.length + ' 个模型，可选择或自行输入。';
@@ -1042,9 +1086,9 @@ $('translate').onclick = () => run(async () => {
   const provider = providers[mode].find(item => item.id === $('provider').value);
   if (!provider) return;
   const description = '将 ' + selected.length + ' 条原文发送给 ' + provider.name + '，可能计费。';
-  if (mode === 'ai' ? !await confirmPaidApi(description) : !window.confirm(description + '继续？')) return;
+  if (!workbenchConsent || (mode !== 'ai' && !window.confirm(description + '继续？'))) return;
   if (state.busy || revision !== state.revision || domain !== state.domain || !inApiMode() || mode !== $('mode').value) return;
-  const body = { revision, edits: selected.map(({ id, group, stamp }) => ({ id, group, stamp })), mode, provider: provider.id };
+  const body = { revision, edits: selected.map(({ id, group, stamp }) => ({ id, group, stamp })), mode, provider: provider.id, consent: workbenchConsent };
   for (const id of ['key', 'model', 'reasoning', 'prompt', 'appId', 'region', 'sourceLanguage']) body[id] = $(id).value;
   for (const id of ['timeout', 'batch', 'input', 'output', 'requests', 'tokens', 'delay', 'retries']) body[id] = $(id).valueAsNumber;
   body.json = $('json').checked;
@@ -1247,6 +1291,10 @@ $('glossaryCheck').onclick = () => glossaryAction(() => {
 });
 function showCfg(visible) {
   if (visible) showGlossary(false);
+  else {
+    releaseApiConsent('cfg', cfgConsent);
+    cfgConsent = null;
+  }
   $('cfgPanel').hidden = !visible;
   $('cfgTab').setAttribute('aria-pressed', visible);
   if (visible) {
@@ -1278,9 +1326,11 @@ function renderCfg() {
   $('cfgNext').disabled = cfg.page >= pages;
   const locked = Boolean(cfg.busy) || cfg.reading;
   const ready = cfg.plan && $('cfgGuid').value.trim() === cfg.plan.guid;
+  $('cfgApiControls').hidden = !cfgConsent;
+  $('cfgEnableApi').hidden = Boolean(cfgConsent);
   $('cfgFile').disabled = $('cfgGuid').disabled = locked;
   $('cfgRead').disabled = !cfg.input || locked;
-  $('cfgTranslate').disabled = locked || aiPaused || aiStopPending || !ready || !rows.some(row => !cfg.values.has(row.id)) || !providers.ai.length;
+  $('cfgTranslate').disabled = locked || !cfgConsent || aiPaused || aiStopPending || !ready || !rows.some(row => !cfg.values.has(row.id)) || !providers.ai.length;
   $('cfgDownload').disabled = locked || !ready || cfg.values.size === 0;
   $('cfgCancel').disabled = !cfg.busy;
   if (cfg.plan) $('cfgSource').textContent = cfg.input.file + ' · ' + cfg.plan.name + ' · 已译 ' +
@@ -1312,6 +1362,13 @@ function cfgProviderChanged() {
   clearModelList('cfgModel');
 }
 $('cfgTab').onclick = () => showCfg(true);
+$('cfgEnableApi').onclick = () => cfgAction(async () => {
+  const consent = await confirmPaidApi('cfg', '同意后可在离线 CFG 中启用 API 翻译。');
+  if (!consent) return;
+  if ($('cfgPanel').hidden || hostStopped) { releaseApiConsent('cfg', consent); return; }
+  cfgConsent = consent;
+  renderCfg();
+});
 $('cfgProvider').onchange = cfgProviderChanged;
 $('cfgGuid').oninput = renderCfg;
 $('cfgSearch').oninput = () => { cfg.page = 1; renderCfg(); };
@@ -1339,13 +1396,13 @@ $('cfgTranslate').onclick = () => cfgAction(async () => {
   const ids = [...rows.filter(row => !cfg.failures.has(row.id)), ...rows.filter(row => cfg.failures.has(row.id))]
     .slice(0, max).map(row => row.id);
   const provider = providers.ai.find(item => item.id === $('cfgProvider').value);
-  if (!provider || !ids.length || !await confirmPaidApi('将最多 ' + ids.length + ' 个静态字段发送给 ' + provider.name + '，可能计费。')) return;
+  if (!provider || !ids.length || !cfgConsent) return;
   const controller = new AbortController();
   cfg.busy = controller;
   renderCfg();
   cfgSay('正在翻译本次字段…');
   try {
-    const result = await api('cfg/translate', { ...cfg.input, ids, provider: provider.id, key: $('cfgKey').value,
+    const result = await api('cfg/translate', { ...cfg.input, ids, provider: provider.id, key: $('cfgKey').value, consent: cfgConsent,
       model: $('cfgModel').value, reasoning: 'off', batch: 12 }, controller.signal);
     for (const [id, reason] of Object.entries(result.failures)) cfg.failures.set(id, reason);
     const received = Object.entries(result.values);

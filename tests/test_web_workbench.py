@@ -298,8 +298,24 @@ class WebWorkbenchTests(unittest.TestCase):
                     self.assertEqual(by_id['setting|[Map]Fade|Description']['source'], 'Marker fade controls opacity.')
                     self.assertEqual(by_id['setting|[Audio]Fade|Description']['source'], 'Sound fade adjusts volume.')
                     self.assertIn('enum|PlaybackMode|Fast', by_id)
+                    consent_route = '/api/api-consent'
+                    self.assertEqual(request('/api/models', token, {'provider': 'deepseek'})[0], 403)
+                    self.assertEqual(request('/api/f12/translate', token, {})[0], 403)
+                    self.assertEqual(request('/api/cfg/translate', token, config)[0], 403)
+                    def open_consent(scope):
+                        status, payload, _ = request(consent_route, token, {'action': 'open', 'scope': scope})
+                        self.assertEqual(status, 200, payload)
+                        return {'scope': scope, 'consent': json.loads(payload)['consent']}
+                    cfg_access = open_consent('cfg')
+                    workbench_access = open_consent('workbench')
+                    self.assertEqual(request(consent_route, token, {**cfg_access, 'action': 'accept'})[0], 400)
+                    self.assertEqual(request('/api/cfg/translate', token, {**config, **cfg_access})[0], 403)
+                    time.sleep(5.05)
+                    for access in (cfg_access, workbench_access):
+                        self.assertEqual(request(consent_route, token, {**access, 'action': 'accept'})[0], 204)
+                    self.assertEqual(request('/api/cfg/translate', token, {**config, **workbench_access})[0], 403)
                     status, stopped, _ = request('/api/cfg/translate', token, {**config,
-                        'ids': ['setting|[Map]Fade|Description'], 'provider': 'deepseek', 'key': 'fixture-never-send'})
+                        **cfg_access, 'ids': ['setting|[Map]Fade|Description'], 'provider': 'deepseek', 'key': 'fixture-never-send'})
                     self.assertEqual(status, 400, stopped)
                     self.assertIn('API 翻译已暂停', json.loads(stopped)['error'])
                     self.assertEqual(json.loads(request('/api/ai-stop', token, {'paused': False})[1]), {'paused': False})
@@ -319,7 +335,9 @@ class WebWorkbenchTests(unittest.TestCase):
                     self.assertEqual(layer['Enum']['PlaybackMode']['Fast'], '快速')
                     self.assertEqual(request('/api/cfg/export', token, {**config, 'values': {'unknown': '译文'}})[0], 400)
                     self.assertEqual(request('/api/cfg/preview', token, {**config, 'guid': '../other'})[0], 400)
-                    self.assertEqual(request('/api/cfg/translate', token, {**config, 'ids': ['unknown']})[0], 400)
+                    self.assertEqual(request('/api/cfg/translate', token, {**config, **cfg_access, 'ids': ['unknown']})[0], 400)
+                    self.assertEqual(request(consent_route, token, {**cfg_access, 'action': 'leave'})[0], 204)
+                    self.assertEqual(request('/api/cfg/translate', token, {**config, **cfg_access})[0], 403)
                     self.assertFalse((home / 'BepInEx/plugins/zh-cn/translations').exists())
                     first_tab = str(uuid.uuid4())
                     tab = '/api/browser-tab'
@@ -385,8 +403,8 @@ class WebWorkbenchTests(unittest.TestCase):
                     resolved = json.loads(request('/api/f12/selection-resolve', token,
                         {'revision': revision, 'edits': [stale, picks[-1]]})[1])['rows']
                     self.assertEqual([(row['group'], row['id']) for row in resolved], [(picks[-1]['group'], picks[-1]['id'])])
-                    self.assertEqual(request('/api/models', token, {'provider': 'unknown'})[0], 400)
-                    self.assertEqual(request('/api/models', token, {'provider': 'deepseek', 'key': ''})[0], 400)
+                    self.assertEqual(request('/api/models', token, {**workbench_access, 'provider': 'unknown'})[0], 400)
+                    self.assertEqual(request('/api/models', token, {**workbench_access, 'provider': 'deepseek', 'key': ''})[0], 400)
                     ai = json.loads(request(catalog.replace('field=Description', 'field=') + '&review=ai', token)[1])
                     mt = json.loads(request(catalog + '&review=machine', token)[1])
                     self.assertEqual([row['source'] for row in ai['rows']], ['Color'])
@@ -442,7 +460,7 @@ class WebWorkbenchTests(unittest.TestCase):
                     status, legacy_message, _ = request('/api/f12/stage', token, f12_rules)
                     self.assertEqual(status, 400)
                     self.assertIn('只支持单插件草稿', legacy_message)
-                    status, legacy_message, _ = request('/api/f12/translate', token, {**f12_rules, 'mode': 'ai'})
+                    status, legacy_message, _ = request('/api/f12/translate', token, {**f12_rules, **workbench_access, 'mode': 'ai'})
                     self.assertEqual(status, 400)
                     self.assertIn('只支持单插件草稿', legacy_message)
                     snapshot_path = data / 'f12.snapshot.json'
@@ -473,7 +491,7 @@ class WebWorkbenchTests(unittest.TestCase):
                         self.exercise_direct_connection(request, token, data, server_catalog, (certificate, key))
                     custom = {'revision': revision, 'mode': 'ai', 'provider': 'custom',
                               'endpoint': 'http://127.0.0.1', 'edits': [{'group': 'fixture', 'id': 'a'}]}
-                    self.assertEqual(request('/api/f12/translate', token, custom)[0], 400)
+                    self.assertEqual(request('/api/f12/translate', token, {**custom, **workbench_access})[0], 400)
                     self.assertEqual(request(tab, token, {'id': first_tab, 'open': False})[0], 204)
                     status, refreshed, _ = request('/')
                     self.assertEqual(status, 200)
