@@ -33,7 +33,7 @@ namespace ConfigurationManagerZhCn
     {
         internal const string PluginGuid = "ConfigurationManager.zh-cn";
         // Release numbers are owner-selected; see docs/VERSION_POLICY.zh-CN.md.
-        internal const string PluginVersion = "2.14.0";
+        internal const string PluginVersion = "2.14.1";
         internal static ConfigEntry<bool> EnableServerLiveSync;
         internal static ConfigEntry<bool> QuietServerLiveSyncLogs;
 

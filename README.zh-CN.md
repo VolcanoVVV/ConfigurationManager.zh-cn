@@ -1,4 +1,4 @@
-# ConfigurationManager.zh-cn 2.14.0 · 玩家与开发者手册
+# ConfigurationManager.zh-cn 2.14.1 · 玩家与开发者手册
 
 这是 **客户端 BepInEx 插件**，为 ConfigurationManager 设置界面增加汉化、人工编辑、API 翻译、机翻和工作台。
 

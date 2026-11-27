@@ -249,6 +249,9 @@ def publish_web() -> None:
 def web_package(output: Path) -> Path:
     payload = workbench_files(WEB_DIST)
     version = re.search(r'PluginVersion\s*=\s*"([^"]+)"', (ROOT / 'ConfigurationManagerZhCnPlugin.cs').read_text(encoding='utf-8-sig')).group(1)
+    host = WEB_DIST / (CONTENT.WEB_NAME + '.dll')
+    if metadata([host])[0]['Version'] != version + '.0':
+        raise ValueError('Stale web workbench assembly version')
     output.mkdir(parents=True, exist_ok=True)
     destination = output / f'网页汉化工作台-{version}-Windows.zip'
     files = {**payload,

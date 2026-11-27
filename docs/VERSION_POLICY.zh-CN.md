@@ -4,8 +4,8 @@
 
 | 项目 | 当前版本 |
 | --- | --- |
-| ConfigurationManager.zh-cn 客户端（Mono / IL2CPP） | 2.14.0 |
-| SimpleTranslatorCS 服务端（SPT 4.0 / 4.1 / 5.0 BE） | 1.14.0 |
+| ConfigurationManager.zh-cn（Mono / IL2CPP / 独立网页） | 2.14.1 |
+| SimpleTranslatorCS 服务端（SPT 4.0 / 4.1 / 5.0 BE） | 1.5.0 |
 
 ## 修改规则
 
@@ -17,11 +17,12 @@
 
 ## 当前版本与维护位置
 
-2026-11-25，维护者将客户端从 2.13.1 更新至 2.14.0。当前客户端安装包和校验清单位于 `releases/2.14.0/`，此前同名的临时开发包已归档至 `releases/superseded/`。
+2026-11-27，维护者将 F12 与独立网页定为 2.14.1，将配套服务端定为 1.5.0。正式安装包及其校验清单由两个仓库的 GitHub Releases 提供。
 
 - 服务端元数据：`SimpleTranslatorCS.csproj` 的 `<Version>`，`ModMetadata` 从程序集读取。
 - 客户端插件版本：`ConfigurationManagerZhCnPlugin.cs` 的 `PluginVersion`。
-- 客户端程序集版本取自 `src/Properties/AssemblyInfo.cs` 的 `AssemblyVersion`、`AssemblyFileVersion`，当前为 `2.14.0.0`。
+- 客户端程序集版本取自 `src/Properties/AssemblyInfo.cs` 的 `AssemblyVersion`、`AssemblyFileVersion`，当前为 `2.14.1.0`。
+- 网页程序集版本取自 `tools/web-workbench/WebWorkbench.csproj` 的 `<Version>`。
 - 客户端使用 `tools/package_client_release.py` 打包。服务端使用服务端项目的 `tools/package_release.py`。脚本读取现有源码版本并生成文件名。
 
 后续接手本项目的维护者或 AI 助手应先遵循本约定。只有用户明确指定或授权更改版本号时，才修改上述数字。
